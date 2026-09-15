@@ -21,9 +21,10 @@ the lingua franca.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import networkx as nx
 import polars as pl
@@ -47,6 +48,75 @@ EDGE_KINDS: tuple[str, ...] = (
     "CONSTRUCTS",
     # Exception-flow edge (bead MetaCoding-ijo).
     "RAISES",
+)
+
+# Extra edge attributes an information-domain export may carry. The loader
+# used to keep only `kind` + `count`; pass-through lets temporal filtrations
+# and confidence-weighted functor search see their inputs.
+DEFAULT_EXTRA_EDGE_ATTRS: tuple[str, ...] = (
+    "valid_from",
+    "valid_to",
+    "ts",
+    "confidence",
+    "provenance",
+    "generated",
+    "generated_by",
+    "derived",
+)
+
+
+@dataclass(slots=True, frozen=True)
+class DomainProfile:
+    """Manifest-driven adapter so CTKR can load a non-code typed graph.
+
+    Absence of a ``domain`` block in the export manifest resolves to
+    :data:`CODE_DOMAIN` — existing code corpora keep their node and edge semantics.
+    See ``docs/design/ctkr-information-domain.md``.
+    """
+
+    name: str = "code"
+    edge_kinds: tuple[str, ...] = EDGE_KINDS
+    counted_edge_kinds: tuple[str, ...] = ()
+    anchor_node_kinds: frozenset[str] = frozenset()
+    partition_key: str = "repo"
+    bridge_key: str = "short_name"
+    scaffold_edge_kinds: frozenset[str] = frozenset({"CONTAINS"})
+    extra_edge_attrs: tuple[str, ...] = DEFAULT_EXTRA_EDGE_ATTRS
+
+
+CODE_DOMAIN = DomainProfile()
+
+INFORMATION_EDGE_KINDS: tuple[str, ...] = (
+    "MENTIONS",
+    "LINKS_TO",
+    "CONTAINS",
+    "TAGGED",
+    "ABOUT",
+    "DERIVED_FROM",
+    "WORKS_AT",
+    "MEMBER_OF",
+    "PART_OF",
+    "ATTENDED",
+    "KNOWS",
+    "INTRODUCED_BY",
+    "FOUNDED",
+    "INVESTED_IN",
+    "ADVISES",
+    "LOCATED_IN",
+    "FOLLOWS",
+    "SAME_AS",
+)
+
+INFORMATION_DOMAIN = DomainProfile(
+    name="information",
+    edge_kinds=INFORMATION_EDGE_KINDS,
+    counted_edge_kinds=("MENTIONS", "LINKS_TO"),
+    anchor_node_kinds=frozenset(
+        {"page", "entity.person", "entity.org", "entity.project", "concept"}
+    ),
+    partition_key="source",
+    bridge_key="short_name",
+    scaffold_edge_kinds=frozenset({"CONTAINS", "TAGGED"}),
 )
 
 
@@ -82,11 +152,85 @@ def resolve_paths(data_dir: str | Path) -> GraphPaths:
     )
 
 
+def load_domain_profile(manifest_path: str | Path | None) -> DomainProfile:
+    """Read a ``domain`` block from ``manifest.json``, else return CODE_DOMAIN.
+
+    Unknown keys are ignored. Missing or empty ``domain`` uses code defaults.
+    A name-only information block uses information defaults. Malformed
+    manifests raise rather than silently selecting the wrong alphabet.
+    """
+    if manifest_path is None:
+        return CODE_DOMAIN
+    path = Path(manifest_path)
+    if not path.exists():
+        return CODE_DOMAIN
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("manifest must be a JSON object")
+    block = data.get("domain")
+    if block is None or block == {}:
+        return CODE_DOMAIN
+    if not isinstance(block, dict):
+        raise ValueError("manifest domain must be an object")
+    name = block.get("name", "code")
+    if not isinstance(name, str) or not name:
+        raise ValueError("domain name must be a nonempty string")
+    base = INFORMATION_DOMAIN if name == "information" else CODE_DOMAIN
+
+    def strings(key: str) -> tuple[str, ...]:
+        value = block.get(key, getattr(base, key))
+        if not isinstance(value, (list, tuple, frozenset)) or any(
+            not isinstance(item, str) or not item for item in value
+        ):
+            raise ValueError(f"domain {key} must be an array of nonempty strings")
+        if len(value) != len(set(value)):
+            raise ValueError(f"domain {key} must not contain duplicates")
+        return tuple(value)
+
+    def text(key: str) -> str:
+        value = block.get(key, getattr(base, key))
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"domain {key} must be a nonempty string")
+        return value
+
+    extra = strings("extra_edge_attrs")
+    if set(extra) & {"src_id", "dst_id", "kind", "key"}:
+        raise ValueError("extra_edge_attrs must not override edge identity")
+    return DomainProfile(
+        name=name,
+        edge_kinds=strings("edge_kinds"),
+        counted_edge_kinds=strings("counted_edge_kinds"),
+        anchor_node_kinds=frozenset(strings("anchor_node_kinds")),
+        partition_key=text("partition_key"),
+        bridge_key=text("bridge_key"),
+        scaffold_edge_kinds=frozenset(strings("scaffold_edge_kinds")),
+        extra_edge_attrs=extra,
+    )
+
+
+def _alias_node_attrs(rec: dict[str, Any], profile: DomainProfile) -> dict[str, Any]:
+    """Copy domain partition/bridge keys onto the code-domain names.
+
+    Downstream miners still read ``repo`` and ``short_name``. An information
+    export keyed on ``source`` / ``title`` becomes loadable without rewriting
+    every miner. Existing ``repo``/``short_name`` values win if already set.
+    """
+    attrs = {k: v for k, v in rec.items() if k != "id"}
+    if profile.partition_key != "repo" and "repo" not in attrs:
+        if profile.partition_key in attrs:
+            attrs["repo"] = attrs[profile.partition_key]
+    if profile.bridge_key != "short_name" and "short_name" not in attrs:
+        if profile.bridge_key in attrs:
+            attrs["short_name"] = attrs[profile.bridge_key]
+    return attrs
+
+
 def load_graph(
     data_dir: str | Path,
     *,
     repo_filter: Iterable[str] | None = None,
     edge_kind_filter: Iterable[str] | None = None,
+    profile: DomainProfile | None = None,
 ) -> nx.MultiDiGraph:
     """Load the exported MetaCoding graph into a NetworkX ``MultiDiGraph``.
 
@@ -112,21 +256,22 @@ def load_graph(
         ``count``.
     """
     paths = resolve_paths(data_dir)
+    resolved = profile if profile is not None else load_domain_profile(paths.manifest)
     repo_set: set[str] | None = set(repo_filter) if repo_filter else None
     edge_set: set[str] | None = set(edge_kind_filter) if edge_kind_filter else None
 
     g = nx.MultiDiGraph()
+    g.graph["domain_profile"] = resolved
 
     # Nodes — polars handles 300k rows comfortably in <1s. We iterate to
     # NetworkX rather than building a DataFrame attribute map because the
     # downstream miners want native dict access.
     n_added = 0
     for rec in _iter_jsonl(paths.nodes):
-        if repo_set is not None and rec.get("repo") not in repo_set:
+        attrs = _alias_node_attrs(rec, resolved)
+        if repo_set is not None and attrs.get("repo") not in repo_set:
             continue
         node_id = rec["id"]
-        # `id` becomes the node key; keep the rest as attributes.
-        attrs = {k: v for k, v in rec.items() if k != "id"}
         # Also keep `file_path` as an explicit alias for `file` — readability
         # in downstream code; the TS source's column is `file`.
         if "file" in attrs and "file_path" not in attrs:
@@ -137,6 +282,11 @@ def load_graph(
     # Edges — drop any whose endpoints aren't in g (e.g. because of repo
     # filtering). Use kind as the edge key so parallel edges of different
     # kinds coexist.
+    extra_keys = tuple(
+        dict.fromkeys(
+            (*resolved.extra_edge_attrs, "generated", "generated_by", "derived", "provenance")
+        )
+    )
     e_added = 0
     for rec in _iter_jsonl(paths.edges):
         if edge_set is not None and rec.get("kind") not in edge_set:
@@ -149,6 +299,14 @@ def load_graph(
         attrs: dict[str, Any] = {"kind": kind}
         if "count" in rec and rec["count"] is not None:
             attrs["count"] = rec["count"]
+        for key in extra_keys:
+            if key in rec and rec[key] is not None:
+                attrs[key] = rec[key]
+        if resolved.name == "information" and g.has_edge(src, dst, key=kind):
+            raise ValueError(
+                f"Duplicate information edge ({src!r}, {dst!r}, {kind!r}); "
+                "aggregate counts and provenance in the exporter before loading"
+            )
         g.add_edge(src, dst, key=kind, **attrs)
         e_added += 1
 
@@ -239,7 +397,13 @@ def _iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
 
 __all__ = [
     "EDGE_KINDS",
+    "INFORMATION_EDGE_KINDS",
+    "DEFAULT_EXTRA_EDGE_ATTRS",
+    "DomainProfile",
+    "CODE_DOMAIN",
+    "INFORMATION_DOMAIN",
     "GraphPaths",
+    "load_domain_profile",
     "load_graph",
     "resolve_paths",
     "graph_stats",

@@ -16,8 +16,12 @@ from pathlib import Path
 import pytest
 
 from ctkr.graph_loader import (
+    CODE_DOMAIN,
     EDGE_KINDS,
+    INFORMATION_DOMAIN,
+    DomainProfile,
     graph_stats,
+    load_domain_profile,
     load_graph,
     resolve_paths,
     search_tokens,
@@ -208,6 +212,114 @@ def test_load_graph_edge_kind_filter(synth_export: Path) -> None:
     assert kinds == {"CONTAINS"}
 
 
+def test_load_domain_profile_absent_is_code_domain(tmp_path: Path) -> None:
+    assert load_domain_profile(None) is CODE_DOMAIN
+    assert load_domain_profile(tmp_path / "missing.json") is CODE_DOMAIN
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    assert load_domain_profile(manifest) is CODE_DOMAIN
+
+
+def test_load_domain_profile_information_block(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "domain": {
+                    "name": "information",
+                    "edge_kinds": ["MENTIONS", "WORKS_AT"],
+                    "counted_edge_kinds": ["MENTIONS"],
+                    "anchor_node_kinds": ["page", "entity.person"],
+                    "partition_key": "source",
+                    "bridge_key": "title",
+                    "scaffold_edge_kinds": ["CONTAINS", "TAGGED"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    profile = load_domain_profile(manifest)
+    assert profile.name == "information"
+    assert profile.edge_kinds == ("MENTIONS", "WORKS_AT")
+    assert profile.partition_key == "source"
+    assert profile.bridge_key == "title"
+    assert "TAGGED" in profile.scaffold_edge_kinds
+    assert INFORMATION_DOMAIN.partition_key == "source"
+
+
+def test_load_graph_aliases_partition_and_bridge(tmp_path: Path) -> None:
+    out = tmp_path / "export"
+    out.mkdir()
+    nodes = [
+        {
+            "id": "p1",
+            "kind": "entity.person",
+            "source": "wiki",
+            "title": "Garry Tan",
+            "qualified_name": "people/garry-tan",
+        },
+        {
+            "id": "c1",
+            "kind": "entity.org",
+            "source": "wiki",
+            "title": "Y Combinator",
+            "qualified_name": "companies/y-combinator",
+        },
+    ]
+    edges = [
+        {
+            "src_id": "p1",
+            "dst_id": "c1",
+            "kind": "WORKS_AT",
+            "valid_from": "2015-01-01",
+            "valid_to": None,
+            "confidence": 0.9,
+        }
+    ]
+    (out / "nodes.jsonl").write_text("".join(json.dumps(n) + "\n" for n in nodes), encoding="utf-8")
+    (out / "edges.jsonl").write_text("".join(json.dumps(e) + "\n" for e in edges), encoding="utf-8")
+    (out / "manifest.json").write_text(
+        json.dumps(
+            {
+                "domain": {
+                    "name": "information",
+                    "partition_key": "source",
+                    "bridge_key": "title",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = load_graph(out)
+    assert g.graph["domain_profile"].name == "information"
+    assert g.nodes["p1"]["repo"] == "wiki"
+    assert g.nodes["p1"]["short_name"] == "Garry Tan"
+    edge = g.edges["p1", "c1", "WORKS_AT"]
+    assert edge["valid_from"] == "2015-01-01"
+    assert edge["confidence"] == 0.9
+    assert "valid_to" not in edge  # None is dropped
+    s = graph_stats(g)
+    assert s["n_repos"] == 1
+    assert s["repos"]["wiki"] == 2
+
+
+def test_load_graph_explicit_profile_overrides_manifest(tmp_path: Path) -> None:
+    out = tmp_path / "export"
+    out.mkdir()
+    (out / "nodes.jsonl").write_text(
+        json.dumps({"id": "n", "kind": "page", "source": "inbox", "title": "x"}) + "\n",
+        encoding="utf-8",
+    )
+    (out / "edges.jsonl").write_text("", encoding="utf-8")
+    (out / "manifest.json").write_text(
+        json.dumps({"domain": {"name": "information", "partition_key": "source"}}),
+        encoding="utf-8",
+    )
+    g = load_graph(out, profile=DomainProfile(name="forced", partition_key="repo"))
+    assert g.graph["domain_profile"].name == "forced"
+    assert "repo" not in g.nodes["n"]
+
+
 def test_graph_stats(synth_export: Path) -> None:
     g = load_graph(synth_export)
     s = graph_stats(g)
@@ -255,11 +367,8 @@ def _orchestrators_metacoding_dir() -> Path:
     fallback to ``~/projects/Orchestrators/.metacoding`` for the original
     dev's machine. Reads each invocation so the env var can change between
     test runs without re-importing the module."""
-    import os
 
-    root = os.environ.get(
-        "ORCHESTRATORS_ROOT", str(Path.home() / "projects" / "Orchestrators")
-    )
+    root = os.environ.get("ORCHESTRATORS_ROOT", str(Path.home() / "projects" / "Orchestrators"))
     return Path(root) / ".metacoding"
 
 
@@ -282,3 +391,44 @@ def test_load_real_metacoding_export() -> None:
     assert s["n_nodes"] > 10_000  # the MetaCoding inspection reported ~300k
     assert s["n_repos"] > 5
     assert "CALLS" in s["edge_kinds"] or "CONTAINS" in s["edge_kinds"]
+
+
+def test_information_name_defaults_and_explicit_empty_fields(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"domain": {"name": "information"}}))
+    assert load_domain_profile(manifest) == INFORMATION_DOMAIN
+    manifest.write_text(
+        json.dumps(
+            {"domain": {"name": "information", "scaffold_edge_kinds": [], "extra_edge_attrs": []}}
+        )
+    )
+    profile = load_domain_profile(manifest)
+    assert profile.scaffold_edge_kinds == frozenset()
+    assert profile.extra_edge_attrs == ()
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "information",
+        {"edge_kinds": "MENTIONS"},
+        {"edge_kinds": ["X", "X"]},
+        {"partition_key": 3},
+        {"anchor_node_kinds": [None]},
+        {"extra_edge_attrs": ["kind"]},
+        {"name": 3},
+    ],
+)
+def test_malformed_profiles_fail_instead_of_silent_code_fallback(tmp_path, block):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"domain": block}))
+    with pytest.raises(ValueError):
+        load_domain_profile(manifest)
+
+
+def test_aliases_preserve_existing_attributes_and_support_filter(synth_export):
+    profile = DomainProfile(name="custom", partition_key="source", bridge_key="qualified_name")
+    loaded = load_graph(synth_export, profile=profile, repo_filter=["cline"])
+    assert set(loaded) == {"n1", "n2"}
+    assert loaded.nodes["n2"]["short_name"] == "register"
+    assert loaded.nodes["n2"]["repo"] == "cline"

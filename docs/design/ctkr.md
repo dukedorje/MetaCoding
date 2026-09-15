@@ -3,7 +3,9 @@
 > **Companion docs.** This is the theoretics. For the strategic framing
 > see [`../VISION.md`](../VISION.md); for the phased build plan with
 > tool surface, CT references, and worked examples see
-> [`ct-pipeline.md`](./ct-pipeline.md).
+> [`ct-pipeline.md`](./ct-pipeline.md). The same ladder over a personal
+> / organizational archive (pages, entities, typed links) is
+> [`ctkr-information-domain.md`](./ctkr-information-domain.md).
 
 A research/design track layered on top of the MetaCoding graph. The core
 MetaCoding lanes give us a clean, queryable, cross-repo code-graph. CTKR
