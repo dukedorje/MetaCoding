@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Descriptive structural-analysis names
+- Preferred CLI names: `structural-profiles` and `composition-patterns`; old
+  `hom-profiles` and `operads` commands remain aliases with the same artifacts.
+- Preferred MCP names: `ctkr.similar_roles`, `ctkr.structural_alignment`, and
+  `ctkr.composition_patterns`; all three legacy names remain supported.
+- Current docs, help and algorithm descriptions separate implemented graph
+  heuristics from category-theory inspiration. Exact-profile classes are not
+  automorphism orbits; approximate mappings do not prove behavioral equivalence.
+- Port reports now describe their independent role-pair witness check honestly.
+  Scoring is unchanged; connected path/common fan-in witnesses are not checked.
+- Category theory is documented as optional research after repeated useful
+  graph/search workflows. Package names and artifact/schema identifiers remain
+  unchanged; no data migration is required.
+
 ### Index / serve reliability
 - **`metacoding index` fails loudly on an unproductive run (MetaCoding-0sd).** A run
   used to exit 0 while writing a completely empty graph — `index <ory/fosite> --scip`
@@ -13,10 +27,10 @@
   `--min-coverage` (default 10%) of the repo's source files were covered. `index-all`
   now exits non-zero when any repo fails. Escape hatch: `--allow-empty-index`.
 
-Six weeks of work: PHP support across the whole pipeline, a large expansion of the CTKR
-categorical-knowledge toolset (subsystems, roles, operads, functor search, port
-verification), a value-equivalence oracle for cross-framework porting, and index/serve
-reliability fixes.
+Six weeks of work: PHP support across the pipeline, an expanded structural-analysis
+toolset (subsystems, roles, composition patterns, approximate mappings and port
+diagnostics), a value-equivalence oracle for cross-framework porting, and
+index/serve reliability fixes.
 
 ### Language support
 - PHP tree-sitter extraction lane: symbols, containment, tokens (MetaCoding-8sh)
@@ -28,14 +42,15 @@ reliability fixes.
 - Drupal-aware extraction: declarative-config intention lane, Drupal PHP file
   extension detection (`.module`/`.install`/`.theme`/`.profile`/`.engine`)
 
-### CTKR (categorical structural analysis)
-- New pipeline stages: subsystem partitioning (Stage A), boundary-morphism/interface
-  extraction (Stage B), role inventory (Stage C), operad recovery (Stage C), spec-deck
-  NL rendering (Stage D/E) — each with an MCP tool
-- Functor discovery: search, eval harness, artifact emission (`functors.parquet`),
-  hom-profiles (opt-in 2-hop WL-refinement, per-edge-kind weighting), and the
-  `functor_between` MCP tool
-- Port-verifier: functor-as-acceptance-test with §6.2 normalization
+### Structural analysis (legacy `ctkr` namespace)
+- Pipeline stages: subsystem partitioning (Stage A), boundary/interface extraction
+  (Stage B), role inventory and composition-pattern mining (Stage C), and spec-deck
+  NL rendering (Stage D/E), with read-side MCP tools over derived artifacts
+- Approximate structural alignment: search, eval harness and artifact emission
+  (`functors.parquet`); structural profiles include opt-in typed-neighbor means
+  and per-edge-kind weighting; preferred MCP tool `ctkr.structural_alignment`
+- Port structural diagnostics with cross-language normalization; heuristic scores
+  supplement, not replace, independent behavioral checks
 - Glossary tooling: `propose-terms`, `glossary-gaps` vocabulary diff, glossary binding
   gate with spec-driven term codegen, term-incidence graph, role-gaps sweep
 - Lexicon-bind: multiple wave-1/wave-2 term bindings across log-family features

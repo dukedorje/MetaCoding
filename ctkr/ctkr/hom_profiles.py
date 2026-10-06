@@ -1,11 +1,13 @@
-"""Hom-profile computation for the MetaCoding code graph (MetaCoding-23q.1).
+"""Structural profiles for the MetaCoding code graph (MetaCoding-23q.1).
 
 For every Symbol in the loaded graph, count incident edges grouped by
-``(edge_kind, direction)`` — the typed-graph analogue of an in/out
-degree vector, with one dimension per edge kind per direction. The
-result is a per-symbol vector that downstream tooling clusters to
-discover name-independent "same role" classes (Yoneda's lemma applied
-to typed graphs — see ``docs/design/ct-pipeline.md`` §2a).
+``(edge_kind, direction)`` — a typed in/out degree vector. Depth 2 adds
+edge-type/direction-specific neighbor means. These are lossy structural
+signatures for name-independent role similarity, not hom functors,
+exact Weisfeiler-Leman refinement, or automorphism-orbit identifiers.
+Yoneda and category theory remain research inspiration; see
+``docs/design/ct-pipeline.md`` §2a. The ``hom_profiles`` module, API,
+artifact, and schema names are retained as compatibility identifiers.
 
 Maximal-precision contract
 --------------------------
@@ -36,8 +38,9 @@ a float before the vector is emitted. Unspecified kinds default to
 ``1.0``. This exists to *down-weight structural-scaffolding edges*
 (especially ``CONTAINS``, which is dominated by directory/containment
 tree structure rather than behaviour — see
-``docs/notes/entropy-as-dial.md``) so role-discrimination reflects
-behaviour rather than the folder tree.
+``docs/notes/entropy-as-dial.md``) so role-discrimination emphasizes
+non-containment structure rather than the folder tree. This is not a
+measurement of behavioral equivalence.
 
 **Precision caveat (honest accounting).** Weighting scales the integer
 counts, so the profile vector is *no longer* the raw ``UInt32``
@@ -105,10 +108,10 @@ class HomProfilesStats:
     elapsed_seconds: float
     # Neighborhood depth of the emitted profile. 1 (default) = the raw
     # per-symbol typed-edge count vector (byte-identical to the original
-    # artifact). 2 = one round of Weisfeiler-Leman color refinement: each
-    # symbol's 1-hop vector is concatenated with, per (edge_kind,
-    # direction) block, the mean 1-hop vector of the neighbors reached via
-    # that block (splits many 1-WL automorphism orbits). See
+    # artifact). 2 = lossy neighbor-mean aggregation: each symbol's 1-hop
+    # vector is concatenated with, per (edge_kind, direction) block, the
+    # mean 1-hop vector of neighbors reached via that block. This can split
+    # degree-profile ties, but is not exact WL or orbit computation. See
     # ``docs/notes/functor-spike/2hop-findings.md``.
     depth: int = 1
 
@@ -120,7 +123,7 @@ def compute_hom_profiles(
     kind_weights: Mapping[str, float] | None = None,
     depth: int = 1,
 ) -> tuple[pl.DataFrame, HomProfilesStats]:
-    """Compute per-symbol hom-profiles over the graph.
+    """Compute per-symbol structural profiles (legacy ``hom_profiles`` API).
 
     Parameters
     ----------
@@ -144,16 +147,16 @@ def compute_hom_profiles(
     depth
         Neighborhood radius of the emitted profile. ``1`` (default) is
         the original per-symbol typed-edge count vector — byte-identical
-        to the pre-existing artifact. ``2`` performs **one round of
-        Weisfeiler-Leman color refinement**: each symbol's 1-hop vector
-        is concatenated with, for every ``(edge_kind, direction)`` block
+        to the pre-existing artifact. ``2`` performs **lossy neighbor-mean
+        aggregation**: each symbol's 1-hop vector is concatenated with,
+        for every ``(edge_kind, direction)`` block
         in ``DIMS`` order, the *mean* 1-hop vector of the neighbors
         reached from the symbol via that block (all-zeros when the block
         has no neighbor). This keys neighbor aggregation by the
-        connecting edge type, so two symbols that are indistinguishable
-        at 1 hop but sit in different structural contexts split apart —
-        the direct attack on 1-WL automorphism orbits. The output vector
-        has ``NDIM + NDIM*NDIM`` dimensions and is always ``Float64``
+        connecting edge type, so some symbols with equal degree profiles
+        but different neighbor profiles can split apart. Means can also
+        collide; this is not exact WL refinement or an orbit test. The output
+        vector has ``NDIM + NDIM*NDIM`` dimensions and is always ``Float64``
         (means are fractional). Only ``1`` and ``2`` are supported.
         Neighbor 1-hop vectors are drawn over the FULL graph (so an
         excluded-``kind`` neighbor still contributes its real structural
@@ -211,7 +214,7 @@ def compute_hom_profiles(
             return counts
         return [c * w for c, w in zip(counts, weight_vec, strict=True)]
 
-    # ── 2-hop (one WL refinement round) neighbor aggregation ────────────────
+    # ── 2-hop lossy neighbor-mean aggregation ─────────────────────────────
     # For each emitted symbol, accumulate the SUM of each neighbor's 1-hop
     # profile into the block keyed by the connecting (edge_kind, direction),
     # plus a per-block neighbor count so we can emit the block MEAN. Neighbor
@@ -310,7 +313,7 @@ def compute_hom_profiles(
 def write_hom_profiles(
     df: pl.DataFrame, out_path: str | Path, *, weighted: bool = False
 ) -> None:
-    """Write the hom-profiles parquet.
+    """Write structural profiles to the legacy hom-profiles parquet artifact.
 
     Default (``weighted=False``): the UInt32 cast is load-bearing — it
     enforces the maximal-precision contract from
@@ -342,9 +345,9 @@ def write_manifest(
     profile_depth: int = 1,
     notes: str | None = None,
 ) -> Path:
-    """Merge hom-profile presence into ``<data_dir>/ctkr/manifest.json``.
+    """Merge structural-profile presence into ``<data_dir>/ctkr/manifest.json``.
 
-    Reads any existing manifest and updates only the hom-profile fields;
+    Reads any existing manifest and updates only the legacy hom-profile fields;
     other presence flags and counters survive intact so multiple
     commands can share the same manifest file. Creates a fresh manifest
     if none exists. Returns the path written.
@@ -374,7 +377,7 @@ def write_manifest(
         # None (raw UInt32 counts) unless a weighting variant was written.
         "kind_weights": dict(kind_weights) if kind_weights else None,
         # Neighborhood depth of the emitted profile (1 = raw counts, the
-        # default; 2 = one WL refinement round). Recorded so a 2-hop
+        # default; 2 = neighbor-mean aggregation). Recorded so a 2-hop
         # artifact is never silently confused with the 1-hop default.
         "profile_depth": int(profile_depth),
     }

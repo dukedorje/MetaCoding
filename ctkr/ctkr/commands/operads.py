@@ -1,18 +1,15 @@
-"""``ctkr operads`` — scoped operad recovery (Stage C / §4.3, T4).
+"""``ctkr composition-patterns`` — observed per-subsystem role-path patterns.
 
-Recover each subsystem's **composition laws** (its relations) by projecting the
-subsystem's actual typed call/reference paths onto the T3 role classes and
-keeping the recurring role-paths — the composition algebra a re-implementer most
-needs and most lacks. Emits ``operads.parquet`` under ``<data_dir>/ctkr/`` (with
-``subsystem_id`` + ``is_boundary_op`` columns per T4) and merges the presence
-flags into ``manifest.json``.
+``operads`` remains a compatibility command alias. Projects typed call/reference
+paths onto role classes and keeps recurring patterns. Operad theory is research
+inspiration; these patterns and diagnostics are not verified composition laws,
+runtime ordering contracts, or categorical operads.
 
-Reads the typed graph (``load_graph``) + ``subsystem_members.parquet`` (T1) +
-``presentations.parquet`` (T3). ``presentations.parquet`` supplies the role
-quotient and the interface participation used to flag boundary (protocol) ops.
-
-See :mod:`ctkr.operads` for the algorithm and
-``docs/design/ct-subsystem-extraction.md`` §4.3 for the design.
+Reads the typed graph, ``subsystem_members.parquet`` and
+``presentations.parquet``. Emits the unchanged ``operads.parquet`` schema and
+manifest keys. Interface participation flags boundary patterns; it does not
+establish protocol ordering. See :mod:`ctkr.operads` for the algorithm and
+``docs/design/ct-subsystem-extraction.md`` §4.3 for research context.
 """
 
 from __future__ import annotations
@@ -30,17 +27,21 @@ from ctkr.graph_loader import load_graph
 
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
-        "operads",
-        help="Recover per-subsystem composition laws / operad (Stage C §4.3).",
+        "composition-patterns",
+        aliases=["operads"],
+        help="Find observed composition patterns (compatibility alias: operads).",
         description=(
-            "Recover each subsystem's composition operations (its relations) by "
+            "Find each subsystem's observed composition patterns by "
             "projecting the subsystem's actual typed call/reference paths onto "
             "the T3 role classes and keeping recurring role-paths. Emits "
             "operads.parquet under <data_dir>/ctkr/ with three op_kind families: "
             "path (sequential composition), fan_in (n-ary combination), and "
-            "non_operadic (recorded law violations — missing_composite / "
-            "back_call_cycle). Boundary (protocol) ops — any of whose roles is "
-            "public in the T2 interface — are flagged is_boundary_op. Requires "
+            "non_operadic (legacy diagnostic label — missing_composite / "
+            "back_call_cycle, not proven law violations). Operad theory is "
+            "research inspiration, not a verified guarantee. The operads command "
+            "alias and artifact/schema names remain unchanged. Boundary ops — any of whose roles is "
+            "public in the T2 interface — are flagged is_boundary_op, without "
+            "asserting runtime ordering or protocol guarantees. Requires "
             "`ctkr subsystems` (T1) and `ctkr roles` (T3) to have run first; "
             "reads interfaces.parquet participation via presentations. "
             "Deterministic: byte-identical re-runs for a fixed --generated-at."
@@ -52,15 +53,16 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         type=str,
         default=None,
         choices=["orbit", "similarity", "both"],
-        help="Which role quotient to project through (default 'similarity', the "
-        "working quotient; 'orbit' = exact-profile classes; 'both' emits each).",
+        help="Which profile grouping to project through (default 'similarity', "
+        "clustered profiles; legacy 'orbit' = exact-profile classes, not "
+        "automorphism orbits; 'both' emits each).",
     )
     p.add_argument(
         "--min-support",
         type=int,
         default=None,
         help="A role-path must recur at least this many times to be an operation "
-        "(default 2; raise for a higher-precision algebra).",
+        "(default 2; raise to retain only more frequent patterns).",
     )
     p.add_argument(
         "--max-nodes",
@@ -108,7 +110,7 @@ def run(args: argparse.Namespace) -> int:
     if not pres_path.exists():
         sys.stderr.write(
             f"ERROR: {pres_path} not found — run `ctkr roles` first (T3 is a "
-            "prerequisite of operad recovery: operads are laws over role classes).\n"
+            "prerequisite for composition patterns over role classes).\n"
         )
         return 2
 
@@ -162,7 +164,7 @@ def run(args: argparse.Namespace) -> int:
         f"back_call_cycle {stats.n_back_call_cycle:,})\n"
         f"  boundary (protocol)  : {stats.n_boundary_ops:,}\n"
         f"  unit-like roles      : {stats.n_unit_like_roles:,}\n"
-        f"  operad rows          : {df.height:,}\n"
+        f"  composition rows     : {df.height:,}\n"
         f"  manifest             : {manifest_path}\n"
         f"  elapsed              : {stats.total_seconds}s\n"
     )

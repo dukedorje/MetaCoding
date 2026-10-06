@@ -1,5 +1,13 @@
 # CT Functor Discovery — Phase 2b design
 
+> **Research/design vocabulary, not a shipped guarantee.** This document retains
+> historical categorical terminology. Current implementations and preferred names
+> are defined in [Structural analysis: names and guarantees](structural-analysis-terminology.md).
+> Profiles are lossy signatures, mappings are approximate structural alignments,
+> and mined paths are composition patterns—not verified categorical laws.
+> Category-theory extensions are an [optional research track](category-theory-research.md),
+> after repeated useful graph/search workflows, not a prerequisite for them.
+
 How MetaCoding computes partial, structure-preserving maps between the categories of two codebases. This is the design + build plan for **Phase 2b** of the CTKR ladder ([`ct-pipeline.md` §2b](./ct-pipeline.md#2b--functor-discovery-cross-repo-structural-maps)); it consumes Phase 2a's hom-profiles and produces the functor edge stream Phase 2c's colimit construction runs on.
 
 Companion docs: [`../VISION.md`](../VISION.md) (why), [`ctkr.md`](./ctkr.md) (theoretics), [`ctkr-artifacts.md`](./ctkr-artifacts.md) (artifact conventions), [`../notes/ctkr-bead-roadmap.md`](../notes/ctkr-bead-roadmap.md) (the deferred bead set this plan instantiates).

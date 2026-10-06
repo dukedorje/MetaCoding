@@ -29,8 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ctkr",
         description=(
-            "Categorical-Theoretic Knowledge Representation — "
-            "graph mining + LLM enrichment over the MetaCoding code graph."
+            "MetaCoding structural analysis — graph mining, approximate mappings "
+            "and evidence-linked enrichment (legacy ctkr command name)."
         ),
     )
     parser.add_argument("--version", action="version", version=f"ctkr {__version__}")

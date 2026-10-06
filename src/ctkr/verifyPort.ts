@@ -1,32 +1,35 @@
 /**
- * Port verifier — functor discovery as an acceptance test for a re-implementation
- * (ct-subsystem-extraction.md §7, task T6).
+ * Port structural analysis — approximate alignment evidence for reviewing a
+ * re-implementation (ct-subsystem-extraction.md §7, task T6).
  *
- * The just-shipped functor track (functorSearch / functorRunner, Phase 2b) is
- * not adjacent to the subsystem-spec pipeline; it is its acceptance test. After
- * a subsystem `S` is re-implemented as `S'` in a different stack, this module
- * scores the port against the EXTRACTED SPEC (roles + interface + composition
- * laws) using the member-set-restricted functor between the two member sets
- * (MetaCoding-4ty), with the §6.2 cross-language normalization applied at seed
- * time.
+ * Scores a port against extracted roles, interfaces, and composition patterns
+ * using member-set-restricted structural alignment, with §6.2 cross-language
+ * normalization applied at seed time. The functorSearch / functorRunner names
+ * remain compatibility identifiers. Category-theory design pointers describe
+ * research inspiration, not verified functor laws or categorical equivalence.
  *
- * The output is deliberately NOT a boolean. It is the §7 PUNCH LIST: a list of
- * localized failures, each pointing at a specific card section (role class /
- * provided export / composition rule) and specific exemplar slices, plus the
- * five gate scores. A re-implementer reads the punch list and knows exactly
- * which role was lost, which export changed usage mode, which protocol op broke.
+ * The output is a punch list with five heuristic gate scores. A failed gate
+ * identifies missing evidence under this extraction, mapping, and threshold
+ * configuration; it does not by itself establish a broken behavioral contract.
  *
- * Gates (§7, decreasing strictness):
- *   1. role coverage        — every tier-I role class has ≥1 member mapped into S'
- *   2. interface preservation — every `provides` export exists and is used in the same modes
- *   3. composition preservation — every tier-I operad op's role-path is realizable in S' (protocol ops strict)
- *   4. fidelity              — functor fidelity over mapped pairs ≥ threshold
- *   5. cycle consistency     — G(F(s)) = s high enough to rule out a displaced match
+ * Gates (§7; legacy report names retained):
+ *   1. role coverage — at least one mapped member per gated role class
+ *   2. interface preservation — mapped provides exports and usage-mode evidence
+ *   3. composition preservation — independent role-pair edge witnesses
+ *   4. fidelity — typed-edge preservation over mapped pairs
+ *   5. cycle consistency — reverse alignment returns enough source symbols
  *
- * Scope honesty (§7): this checks that the port preserves the extracted SHAPE
- * and CONTRACT. It does not check behavior — the algorithm inside a role is
- * opaque to every name-blind structural method and is carried by exemplar slices
- * + intent text only. The deck complements the test suite; it does not replace it.
+ * IMPORTANT LIMITATION: gate 3 checks each role pair independently. Path steps
+ * need not use the same intermediate concrete symbols, so success does not
+ * prove a connected complete path in the port. Fan-in inputs need not reach
+ * the same concrete target. Each step accepts any kind in the pattern's kind
+ * set, rather than enforcing a per-position edge-kind sequence.
+ * Legacy composition-preservation keys identify this weaker diagnostic;
+ * report text states its limits, not proof of composition laws or execution order.
+ *
+ * These scores are structural evidence, not behavioral equivalence, complete
+ * contract verification, or a replacement for tests and semantic review.
+ * Exemplar slices and intent text provide context, not an automated oracle.
  *
  * Provided as a thin recipe over `functorSearch` (§8.2 open decision (c): start
  * as a recipe, promote to an MCP tool when the punch-list format stabilizes).
@@ -108,10 +111,11 @@ export interface SpecProvide {
   usageModes: string[];
 }
 
-/** One recovered composition operation (operads.parquet, T4). */
+/** One mined composition pattern (legacy operads.parquet artifact, T4). */
 export interface SpecOp {
   operationId: string;
   label?: string;
+  /** Legacy enum: non_operadic denotes diagnostics, not failed operad laws. */
   opKind: "path" | "fan_in" | "non_operadic";
   inputRoles: string[];
   outputRole: string;
@@ -125,6 +129,7 @@ export interface SubsystemSpec {
   subsystemId: string;
   repo: string;
   name?: string;
+  /** Legacy orbit value means exact-profile classes, not automorphism orbits. */
   view: "orbit" | "similarity";
   roles: SpecRole[];
   provides: SpecProvide[];
@@ -352,7 +357,7 @@ export interface PortVerificationReport {
     nObjectsSrc: number;
     cycleConsistency: number;
   };
-  /** how many source objects the forward functor mapped. */
+  /** How many source nodes the forward structural alignment mapped. */
   mappingCount: number;
 }
 
@@ -857,15 +862,17 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
   }
   const ifaceScore = providesGated.length === 0 ? 1 : providesOk / providesGated.length;
 
-  // ---- Gate 3: composition preservation ----
+  // ---- Gate 3: composition-pattern role-pair witnesses (legacy gate name) ----
   const roleMembers = new Map<string, string[]>();
   for (const r of opts.spec.roles) roleMembers.set(r.roleId, r.members);
   const roleLabel = new Map<string, string>();
   for (const r of opts.spec.roles) roleLabel.set(r.roleId, r.label ?? r.roleId);
 
-  // a role-step (rA --kinds--> rB) is realizable iff some mapped members a∈rA,
-  // b∈rB have a same-kind (kind∈kinds) source edge a→b whose witness F(a)→F(b)
-  // exists in the port.
+  // A role-step passes iff some mapped members a∈rA, b∈rB have a same-kind
+  // (kind∈kinds) source edge a→b whose witness F(a)→F(b) exists in the port.
+  // This existential witness is independent of every other role-step. It
+  // proves neither a connected complete path nor a shared fan-in target.
+  // The kind set also does not enforce an ordered edge-kind sequence.
   const srcEdgeAdj = new Map<string, FunctorEdge[]>();
   for (const e of srcEdges) {
     let a = srcEdgeAdj.get(e.src);
@@ -895,10 +902,12 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
     const kinds = new Set(op.edgeKinds.map((k) => collapse[k] ?? k));
     let realizable: boolean;
     if (op.opKind === "fan_in") {
-      // every input role must reach the output role by a witnessed same-kind edge.
+      // Each input role needs an edge witness to the output role, but the
+      // witnesses can end at different concrete targets (not proven fan-in).
       realizable = op.inputRoles.every((r) => stepRealizable(r, op.outputRole, kinds));
     } else {
-      // path: consecutive role pairs [in0→in1→…→out] each realizable.
+      // Independent witnesses per consecutive role pair; adjacent steps can
+      // use different middle members, so this need not be a connected path.
       const chain = [...op.inputRoles, op.outputRole];
       realizable = true;
       for (let i = 0; i + 1 < chain.length; i++) {
@@ -918,11 +927,9 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
         cardSection: `composition_rules[operation_id=${op.operationId}]`,
         label: op.label,
         detail:
-          (op.isBoundaryOp ? "PROTOCOL op " : "op ") +
-          `"${op.label ?? op.operationId}" (${op.opKind} ${roleChain}, kinds ${op.edgeKinds.join("/")}) is not realizable in the port — ` +
-          (op.isBoundaryOp
-            ? "an external-facing order-of-operations contract the port breaks silently"
-            : "the composition law over roles is not preserved"),
+          (op.isBoundaryOp ? "Boundary pattern " : "Pattern ") +
+          `"${op.label ?? op.operationId}" (${op.opKind} ${roleChain}, kinds ${op.edgeKinds.join("/")}) lacks a mapped role-pair edge witness — ` +
+          "this is a structural diagnostic, not proof of a broken execution contract",
         exemplarSlices: (op.exemplarPaths ?? []).slice(0, 2).map((pth) => ({
           symbolId: pth,
           qualifiedName: pth,
@@ -930,7 +937,8 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
       });
     }
   }
-  // ceiling requires ALL boundary (protocol) ops realizable.
+  // Ceiling requires all boundary patterns to pass the same independent
+  // role-pair checks; it does not strengthen them to connected realizations.
   const boundaryOps = gatedOps.filter((o) => o.isBoundaryOp);
   const boundaryOk = boundaryOps.filter((op) => {
     const kinds = new Set(op.edgeKinds.map((k) => collapse[k] ?? k));
@@ -953,7 +961,7 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
       gate: "fidelity",
       severity: "blocker",
       cardSection: "functor.fidelity",
-      detail: `functor fidelity ${fidScore.toFixed(3)} < floor ${th.fidelity[0]} over ${fwd.nEdgesInternal} internal edges — the port preserves too few typed edges to be a structure-preserving map`,
+      detail: `structural-alignment edge fidelity ${fidScore.toFixed(3)} < floor ${th.fidelity[0]} over ${fwd.nEdgesInternal} internal edges — too few mapped typed edges meet the configured threshold`,
       exemplarSlices: [],
     });
   }
@@ -974,7 +982,7 @@ export function verifyPort(opts: VerifyPortOptions): PortVerificationReport {
   const gates = {
     roleCoverage: mkGate("role coverage", roleCoverageScore, th.roleCoverage, `${coveredRoles}/${roleDenom} tier-I role classes covered`),
     interfacePreservation: mkGate("interface preservation", ifaceScore, th.interfacePreservation, `${providesOk}/${providesGated.length} provided exports preserved`),
-    compositionPreservation: mkGate("composition preservation", compScore, th.compositionPreservation, `${opsOk}/${gatedOps.length} composition ops realizable (${boundaryOk}/${boundaryOps.length} protocol ops)`),
+    compositionPreservation: mkGate("composition pattern coverage", compScore, th.compositionPreservation, `${opsOk}/${gatedOps.length} patterns have independent role-pair witnesses (${boundaryOk}/${boundaryOps.length} boundary patterns); connected paths and common fan-in targets are not checked`),
     fidelity: mkGate("fidelity", fidScore, th.fidelity, `${fwd.nEdgesPreserved}/${fwd.nEdgesInternal} internal edges preserved`),
     cycleConsistency: mkGate("cycle consistency", cycScore, th.cycleConsistency, `G(F(s))=s on ${cycScore.toFixed(3)} of mapped pairs`),
   };

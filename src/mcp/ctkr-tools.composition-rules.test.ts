@@ -15,6 +15,7 @@ import { mkdtemp, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
+import { aliasResult } from "./ctkr-alias-test-helpers.ts";
 import { compositionRules } from "./ctkr-tools.ts";
 
 const OP_COLSPEC: [string, string][] = [
@@ -123,6 +124,20 @@ afterAll(async () => {
 });
 
 describe("compositionRules", () => {
+  test("composition_patterns and legacy alias retain schemas, filters, and diagnostics", async () => {
+    const result = await aliasResult("ctkr.composition_patterns", "ctkr.composition_rules", {
+      subsystem: "ss:A", boundary_only: true, min_support: 2,
+    });
+    expect(result.operations).toHaveLength(2);
+    expect(result.violations).toHaveLength(1);
+    expect(result.protocol_roles).toContain("role:Handler");
+    const exact = await aliasResult("ctkr.composition_patterns", "ctkr.composition_rules", {
+      subsystem: "ss:A", view: "orbit",
+    });
+    expect(exact.view).toBe("orbit");
+    expect(exact.operations).toHaveLength(1);
+  });
+
   test("scoped operad: operations split from violations", async () => {
     const res = await compositionRules({ subsystem: "ss:A" });
     // 3 real ops (path x2 + fan_in), 2 violations — orbit row excluded (default similarity).

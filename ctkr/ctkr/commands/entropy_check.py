@@ -52,11 +52,11 @@ _DIMS: list[tuple[str, str]] = list(_DIMS_TUPLE)
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "entropy-check",
-        help="Hom-profile entropy / edge-type discrimination spike (MetaCoding-23q.6).",
+        help="Structural-profile entropy / edge-type discrimination diagnostic.",
         description=(
-            "Compute hom-profile entropy over the corpus to decide whether the "
+            "Compute structural-profile entropy over the corpus to assess whether the "
             "current edge-type alphabet discriminates structural roles well enough "
-            "for hom-profile clustering (MetaCoding-23q.1) to be viable."
+            "for structural-profile clustering to be useful (a heuristic, not a guarantee)."
         ),
     )
     add_common_flags(p)

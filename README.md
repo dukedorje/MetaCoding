@@ -37,7 +37,7 @@ two files on disk, no servers.
 The graph is exposed over **MCP** as a small typed surface
 (`graph_neighbors`, `graph_implementers`, `graph_callers`, `graph_diff`,
 `code_search`, plus live `lsp_hover` / `lsp_diagnostics`, and the
-`ctkr.*` categorical-knowledge tools — see
+`ctkr.*` structural-analysis tools — see
 [mcp-surface.md](docs/design/mcp-surface.md)). The agent composes — it
 doesn't author Cypher. Call `describe_api` to discover the live list.
 
@@ -52,32 +52,43 @@ gauntlet:
   mitigation lifted from Dreamball's spike (see
   [storage-integration.md](docs/design/storage-integration.md)).
 - MCP server (stdio transport): seven core graph/FTS tools, four live
-  LSP tools, and six `ctkr.*` categorical-knowledge tools over the
-  cross-repo corpus artifacts.
+  LSP tools, and `ctkr.*` structural-analysis tools over derived corpus
+  artifacts. Call `describe_api` for the current list and compatibility aliases.
 - Incremental re-indexing keyed on AST hash; file watcher; branch
   auto-detect.
 - `metacoding export` dumps the graph to JSONL for downstream analysis.
 
-## CTKR — what the corpus already knows
+## Structural analysis — the next useful layer
 
-The graph in one project is one thing. The *shapes that recur across
-many projects* are another. CTKR is a structure-mining overlay,
-[`ctkr/`](ctkr/), that walks a corpus of related codebases and asks:
-what wiring shows up in many of them? When the same pattern surfaces
-in thirty-eight projects under thirty-eight different names, that's a
-design pattern — found, not declared. The names were always noise.
-The arrows were always the signal.
+Start with the graph core: **index → inspect → change → test → re-index →
+verify**. Make that cycle useful in routine coding before adding more analysis.
 
-CTKR finds the shapes. An LLM names them afterward — structure first,
-language second. Motif mining, graph embeddings, persistent-homology
-shape signatures, centrality, and an LLM-bridged labeler all read the
-same store MetaCoding writes.
+The optional [`ctkr/`](ctkr/) Python project adds structural profiles,
+similar-role retrieval, subsystem boundaries, approximate structural alignment,
+and composition patterns. Motifs, embeddings, centrality, topological signatures,
+and LLM labels provide further ways to explore a corpus. These are candidate
+findings to inspect against source evidence, not proofs of design intent.
 
-Think of MetaCoding as the **ground** and CTKR as a **listener** held
-against it. CTKR is in active development; see
-[`docs/design/ctkr.md`](docs/design/ctkr.md) for the long story and
-[`docs/design/ctkr-artifacts.md`](docs/design/ctkr-artifacts.md) for
-the concrete artifacts it produces.
+- Profile equality is equality of a finite feature vector, not an exact graph
+  automorphism orbit or proof of an identical role.
+- Partial mappings and edge-preservation scores do not establish categorical
+  or behavioral equivalence. Review ambiguous assignments and missing edges.
+- Derived artifacts can be absent or stale. Check index health and artifact
+  freshness before interpreting a result; an empty result is not proof of absence.
+
+Keep additions task-driven. Compare a real task with source/text tools, the graph
+core, and the added analysis on the same data and budget. Record useful findings,
+false matches, missed cases, effort, and verified outcomes. No general performance
+improvement is claimed from structural similarity alone.
+
+Category theory remains **inspiration and experimental research**, to revisit
+when routine full-cycle use exposes a need that simpler graph methods do not
+meet. It is not a prerequisite for useful graph tooling. See the
+[current design](docs/design/ctkr.md),
+[names and compatibility contract](docs/design/structural-analysis-terminology.md),
+and [research track](docs/design/category-theory-research.md).
+The `ctkr` namespace, old commands/tools, artifact names, and schema identifiers
+remain compatible; there is no data migration.
 
 ## Install
 
@@ -199,17 +210,17 @@ bun run smoke
   found probabilistic extraction was dominated 2× to 45× on cost,
   latency, and recall. Don't add it back without a reason that fits
   in one sentence.
-- **Local-first, embedded.** No servers, no cloud, no Docker. One
-  process, one on-disk DB. Your code stays where you put it; nothing
-  phones home; the graph is yours.
+- **Local-first, embedded core.** No database server or Docker required.
+  The graph and FTS sidecar stay on disk. Optional LLM labeling is separate
+  and can send source context to the configured provider; enable it deliberately.
 - **Typed MCP surface.** Specific tools the agent will reach for
   (`graph_implementers`, `graph_callers`) over raw Cypher passthrough.
   Compose, don't bloat.
 - **Layered fidelity.** Tree-sitter ships immediately at low fidelity;
   SCIP and LSP upgrade specific languages without reshaping the API.
-- **Defer what isn't load-bearing.** No embeddings v0. No taint v0.
-  Add a lane only when a class of questions fails through the existing
-  ones.
+- **Defer what is not needed.** Start with graph queries and source evidence.
+  Add optional analysis only when repeated tasks show a gap, then compare it
+  with the simpler baseline.
 
 ## Layout
 
@@ -242,8 +253,8 @@ Design docs are the prose source of truth:
   compatibility notes.
 - [docs/design/build-plan.md](docs/design/build-plan.md) — MVP order
   of operations and what each phase ships.
-- [docs/design/ctkr.md](docs/design/ctkr.md) — the categorical
-  knowledge-representation track.
+- [docs/design/ctkr.md](docs/design/ctkr.md) — structural analysis,
+  current limits, compatibility, and task-based validation.
 
 ## Stack
 

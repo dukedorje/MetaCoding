@@ -1,14 +1,17 @@
 /**
- * Production functor search (Phase 2b, MetaCoding §6 Task 2).
+ * Approximate structural alignment (Phase 2b, MetaCoding §6 Task 2).
  *
- * Computes a partial, structure-preserving map (an approximate functor)
- * `F : C_A → C_B` between the categories of two indexed repos, following
- * docs/design/ct-functor-discovery.md §2.2 and the pinned defaults revised
- * by the Task-1 spike (docs/notes/functor-spike/{README,2hop-findings}.md).
+ * Searches for a partial alignment between two indexed typed graphs. Edge
+ * preservation is scored, not guaranteed. This is not a proof of functor laws,
+ * categorical equivalence, graph isomorphism, or behavioral equivalence.
+ * Category theory remains research inspiration in
+ * docs/design/ct-functor-discovery.md §2.2; pinned defaults come from
+ * docs/notes/functor-spike/{README,2hop-findings}.md. The functorSearch API,
+ * Functor* types, and functor artifact names remain compatibility identifiers.
  *
  * Pipeline (Steps 0-4):
  *   0. build typed adjacency (internal edges only, deterministically sorted)
- *   1. candidate blocking — DEPTH-2 hom-profile KNN + RELATIVE-CUT
+ *   1. candidate blocking — DEPTH-2 structural-profile KNN + RELATIVE-CUT
  *   2. similarity-flooding propagation (alpha=0.3, rounds=8) with CONDITIONAL
  *      competitive (Sinkhorn-style) normalization + kind-discriminativeness
  *      weights + seed-confidence damping
@@ -16,10 +19,10 @@
  *   4. fidelity scoring + bounded drop/swap repair
  *
  * This module is a PURE algorithm over in-memory fixtures: it consumes
- * objects (with their depth-2 hom-profile vectors), typed edges, and a config,
- * and returns the mapping + functor-level metrics. The batch runner (Task 3)
- * wires it to `CtkrHandle` (artifacts.ts) for depth-2 hom-profile rows and to
- * the graph store for typed edges; `buildFunctorInput` is the adapter shape it
+ * objects (with lossy depth-2 degree/neighbor-mean profiles), typed edges, and
+ * a config, and returns the mapping + alignment metrics. The batch runner
+ * (Task 3) wires it to `CtkrHandle` (artifacts.ts) for structural-profile rows
+ * and the graph store for typed edges; `buildFunctorInput` is the adapter shape it
  * feeds. Keeping the core pure is what makes the determinism contract testable
  * on hand-built fixtures.
  *
@@ -36,16 +39,16 @@ import { cosineSimilarity } from "./homProfile.ts";
 // Public types
 // ---------------------------------------------------------------------------
 
-/** One object (Symbol node) in a repo's category, with its depth-2 profile. */
+/** One Symbol node in a repo's typed graph, with its depth-2 profile. */
 export interface FunctorObject {
   id: string;
   /** Symbol kind — drives the hard kind-compatibility block (§2.2 Step 1). */
   kind: string;
-  /** Depth-2 hom-profile vector (ctkr hom-profiles --depth 2). */
+  /** Depth-2 structural profile (legacy command: ctkr hom-profiles --depth 2). */
   profileVec: number[];
 }
 
-/** One typed generating morphism `src →kind→ dst`. */
+/** One directed typed edge `src →kind→ dst`. */
 export interface FunctorEdge {
   src: string;
   dst: string;
@@ -118,13 +121,13 @@ export interface FunctorSearchConfig {
   /** Wall-clock budget (ms). Anytime: exits with current state past this. */
   budgetMs: number;
   /**
-   * ENDOFUNCTOR MODE (MetaCoding-4ty). When true, the trivial `s ↦ s` diagonal
-   * candidate is dropped at blocking time, so a single-repo search `F : R → R`
-   * surfaces non-trivial INTERNAL correspondences (isomorphic subsystems /
-   * twice-instantiated patterns) instead of collapsing onto the identity. No
+   * SAME-REPO MODE (legacy "endofunctor", MetaCoding-4ty). When true, the
+   * trivial `s ↦ s` diagonal candidate is dropped at blocking time, so a
+   * single-repo search surfaces candidate INTERNAL correspondences (similar
+   * subsystems / repeated patterns), not proven isomorphisms. No
    * other stage changes: diagonal pairs simply never enter the candidate space,
    * so propagation, pruning and extraction run unmodified over the off-diagonal
-   * candidates. Default `false` (cross-repo functors are never self-maps).
+   * candidates. Default `false` (cross-repo alignment does not need this filter).
    */
   excludeIdentity: boolean;
 }
@@ -191,7 +194,7 @@ export interface FunctorSearchResult {
   /** fraction of accepted pairs with margin < deltaAmb. */
   ambiguityRate: number;
   /**
-   * Functor-level honesty metric (MetaCoding-265): fraction of committed
+   * Alignment-level honesty metric (MetaCoding-265): fraction of committed
    * mappings with `margin < deltaAmb`. High (~0.9 on real name-blind typed-edge
    * profiles) means the per-symbol correspondence is an aggregate-only signal —
    * fidelity/cycle-consistency remain meaningful, individual mappings are
@@ -321,7 +324,7 @@ function buildGraph(objects: FunctorObject[], edges: FunctorEdge[]): BuiltGraph 
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — candidate blocking (DEPTH-2 hom-profile KNN + relative cut)
+// Step 1 — candidate blocking (DEPTH-2 structural-profile KNN + relative cut)
 // ---------------------------------------------------------------------------
 
 interface Candidate {
@@ -370,7 +373,7 @@ function blockCandidates(
     const scored: Candidate[] = [];
     if (sNorm > 0) {
       for (const t of pool) {
-        // Endofunctor mode: drop the trivial s↦s diagonal so a single-repo
+        // Same-repo mode: drop the trivial s↦s diagonal so a single-repo
         // search surfaces non-trivial internal correspondences, not the identity.
         if (cfg.excludeIdentity && t.id === sid) continue;
         if (dst.norms.get(t.id)! === 0) continue; // zero-profile target: no signal
@@ -647,7 +650,8 @@ interface ExtractedPair {
 
 /**
  * GREEDY maximum-weight matching (½-approx). Per the spike, LAP/Hungarian buys
- * nothing — ties are intrinsic orbits — so we keep greedy + the margin column.
+ * nothing in the spike — lossy profiles leave ties — so keep greedy + margin.
+ * Such ties do not establish automorphism orbits or equivalent behavior.
  * Sort surviving pairs by pre-norm σ desc, tie-break (s,t) lex; accept a pair
  * when both endpoints are unclaimed (injectivity).
  */
@@ -712,7 +716,7 @@ function pairMetrics(
   };
 }
 
-/** functor-level internal/preserved edge counts (each directed edge once). */
+/** Alignment-level internal/preserved edge counts (each directed edge once). */
 function functorFidelity(
   src: BuiltGraph,
   dst: BuiltGraph,
@@ -739,7 +743,7 @@ function functorFidelity(
 // ---------------------------------------------------------------------------
 
 /**
- * Run the full seeded-constraint-propagation functor search on one directed
+ * Run seeded-constraint-propagation structural alignment on one directed
  * repo pair. Deterministic and anytime (honors `cfg.budgetMs`).
  */
 export function functorSearch(
@@ -752,7 +756,7 @@ export function functorSearch(
   // MEMBER-SET RESTRICTION (§5.6): scope the domain / codomain to the given
   // symbol-id sets. Objects are filtered here; `buildGraph` then keeps only the
   // edges internal to the retained object set — so the whole downstream pipeline
-  // (blocking → propagation → extraction) runs unmodified over the sub-category.
+  // (blocking → propagation → extraction) runs unmodified over the scoped graph.
   const srcObjects = input.srcMembers
     ? input.srcObjects.filter((o) => input.srcMembers!.has(o.id))
     : input.srcObjects;

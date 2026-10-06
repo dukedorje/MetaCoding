@@ -1,52 +1,39 @@
-"""Scoped operad recovery — Stage C / §4.3 (subsystem-extraction T4).
+"""Composition-pattern mining — Stage C / §4.3 (subsystem-extraction T4).
 
-Phase 2d ([`ct-pipeline.md` §2d](../../docs/design/ct-pipeline.md)) instantiated
-single-repo and per-subsystem. The role inventory (T3, ``presentations.parquet``)
-gives a subsystem's **generators** (role classes); this module gives its
-**relations** — the composition algebra:
+Mine supported typed path and fan-in patterns within each subsystem, projected
+onto the role classes in ``presentations.parquet``. Category theory, operads,
+and wiring diagrams (Fong & Spivak ch. 6) remain research inspiration; see
+``docs/design/ct-pipeline.md`` §2d. This module does not recover or prove an
+operad, categorical laws, or behavioral equivalence.
 
-    "This is what a re-implementer most needs and most lacks: not the pieces,
-     but the algebra of how pieces combine."  (§4.3)
+The pipeline:
 
-The pipeline, per §4.3:
+1. **Project observed paths onto roles.** Enumerate internal, non-``CONTAINS``
+   edges and two-edge paths, then replace concrete symbols with role classes.
+   A role sequence summarizes graph edges, not necessarily execution order.
+2. **Keep supported patterns.** ``path`` rows count distinct concrete node
+   tuples. ``fan_in`` rows count targets with the same set of distinct source
+   roles and edge kinds; their ``arity`` counts source roles, not source nodes.
+3. **Record diagnostics.** Recurring role pairs with a shared middle role but
+   no retained two-edge pattern yield ``missing_composite`` rows. Thresholds,
+   truncated enumeration/sampling, path limits, missing profiles, and the role
+   quotient all affect absence. Opposite recurring role pairs yield
+   ``back_call_cycle`` rows; these need not share concrete endpoints. Neither
+   diagnostic is a generic category/operad violation: cycles are allowed, and
+   role-level composability need not imply connected instance paths. Observed
+   two-edge paths do not prove associativity.
+4. **Flag interface participation.** ``is_boundary_op`` means at least one role
+   participates in the interface. This is a review hint, not proof of an
+   external protocol or an order-of-operations contract.
 
-1. **Project call paths onto roles.** Enumerate the subsystem's actual typed
-   (non-``CONTAINS``) call/reference paths and replace each concrete symbol with
-   its role class (from ``presentations.parquet`` for a chosen ``view``). The
-   path ``parseConfig → validateSchema → applyDefaults`` becomes the role-path
-   ``Loader ∘ Validator ∘ Defaulter``.
+Compatibility names are retained: ``operads`` module/API/artifact/schema,
+``non_operadic``, ``associative_observed``, ``law_violations``, ``violation_kind``,
+and ``invariance_tier`` are legacy labels for patterns and diagnostics, not
+mathematical or portability guarantees. ``orbit`` means exact-profile classes.
 
-2. **Recurring role-paths become operations.** A role-path signature observed
-   with ``support ≥ min_support`` is an operation ``{operation_id, arity,
-   input_roles, output_role, edge_kinds, support, exemplar_paths}``. Two
-   families:
-
-   - ``path`` — a linear composition (sequential). Terminal role = ``output_role``;
-     preceding roles = ``input_roles``; ``arity`` = composition steps.
-   - ``fan_in`` — an n-ary combination: a target role produced/invoked by
-     combining ``arity`` distinct source roles (the multi-fan-in / wiring-diagram
-     reading, Fong & Spivak ch. 6 — "Orchestrator composes 1..n Workers").
-
-3. **Check the laws empirically.** For every composable generator pair
-   ``R_i→R_j`` and ``R_j→R_k`` (both recurring, shared middle role ``R_j``),
-   check whether the predicted 2-step composite ``R_i→R_j→R_k`` is *itself an
-   observed operation*. Where it is, associativity/closure holds (recorded on the
-   composite op). Where it isn't — role-composability without instance-composition
-   — record a ``non_operadic`` row (``violation_kind="missing_composite"``). And
-   where both ``R_i→R_j`` and ``R_j→R_i`` recur (an observed 2-cycle — the "Worker
-   never calls Orchestrator back except through Callback" non-law), record a
-   ``non_operadic`` row (``violation_kind="back_call_cycle"``). Violations are
-   *bookkept, never discarded* (ct-pipeline §2d).
-
-4. **Flag boundary operations.** An operation any of whose roles participates in
-   the subsystem's interface (a role with non-empty ``interface_participation`` in
-   ``presentations.parquet``, joined from ``interfaces.parquet``, T2) is a
-   **protocol** op — the order-of-operations contract external callers depend on,
-   the composition laws a port breaks first and silently. ``is_boundary_op=True``.
-
-Structure-only lane (§5): this module reads exclusively typed edges + the T1
-partition + the T3 role quotient (all name-blind). No identifier text influences
-any operation, law, or flag. The NL lane (T5) labels these operations later.
+Structure-only lane (§5): typed edges, the T1 partition, and the T3 role quotient
+set the patterns and flags. Identifier text is used only for exemplars. The NL
+lane (T5) can label the patterns later.
 
 Determinism: role-paths are enumerated over sorted nodes/edges; operations are
 ranked ``(op_kind, -support, operation_id)`` with members/roles sorted;
@@ -76,28 +63,27 @@ logger = logging.getLogger("ctkr.operads")
 
 # ── defaults (dials, not truths) ──
 # A role-path must recur at least this many times to count as an operation. 2 is
-# the minimum that makes "recurring" meaningful (support 1 is a one-off, not a
-# law); it is a floor a caller raises for a high-precision algebra.
+# the minimum that makes "recurring" meaningful (support 1 is a one-off).
+# Raising it filters patterns; no support threshold turns a pattern into a law.
 DEFAULT_MIN_SUPPORT: int = 2
-# Longest role-path (in nodes) enumerated. 3 nodes = 2 composition steps = the
-# (role×role×role) triple ct-pipeline §2d names; deeper paths are the transitive
-# closure of the 2-step composites and add little beyond combinatorial cost.
+# Path-node setting: the implementation enumerates edges, plus two-edge paths
+# when this is >= 3. Larger values do not enable deeper path enumeration.
 DEFAULT_MAX_PATH_NODES: int = 3
 # Up to this many concrete qualified-name paths kept per operation as exemplars.
 DEFAULT_MAX_EXEMPLARS: int = 3
 # Which role quotient to project through. "similarity" is the working quotient
-# the card uses; "orbit" is the conservative exact-profile one; "both" emits each.
+# the card uses; legacy "orbit" means exact-profile classes; "both" emits each.
 DEFAULT_VIEW: str = "similarity"
 # Safety cap on 2-edge path enumeration per subsystem (guards a pathological
-# hub). Exceeding it truncates enumeration (recorded in stats) — the operad is
-# then a lower bound on support, never wrong, just conservative.
+# hub). Exceeding it truncates enumeration (recorded in stats). Observed path
+# support is then a lower bound; missing-pattern diagnostics can be artifacts
+# of truncation, not genuine structural absences.
 DEFAULT_MAX_PATHS_PER_SUBSYSTEM: int = 2_000_000
 
-# CONTAINS is the containment backbone (§6.1 tier-A scaffolding), never a
-# composition morphism — excluded from every path, exactly as interfaces.py
-# excludes it from contract morphisms.
+# CONTAINS is containment scaffolding (§6.1 tier A). This modeling choice
+# excludes it from path patterns, as interfaces.py excludes it from interfaces.
 CONTAINMENT_KIND = "CONTAINS"
-INVARIANCE_TIER = "I"  # composition laws over roles are port-invariant (§6.1)
+INVARIANCE_TIER = "I"  # legacy tier label (§6.1), not proven port invariance
 
 
 @dataclass(slots=True, frozen=True)
@@ -110,7 +96,7 @@ class OperadStats:
     n_boundary_ops: int
     n_missing_composite: int
     n_back_call_cycle: int
-    n_unit_like_roles: int  # identity-glue roles (reported, not a column)
+    n_unit_like_roles: int  # shortcut-pattern roles, not proven identity units
     total_seconds: float
     truncated_subsystems: list[str] = field(default_factory=list)
     per_subsystem: dict[str, dict[str, float]] = field(default_factory=dict)
@@ -131,7 +117,7 @@ def compute_operads(
     max_paths_per_subsystem: int = DEFAULT_MAX_PATHS_PER_SUBSYSTEM,
     generated_at: str | None = None,
 ) -> tuple[pl.DataFrame, OperadStats]:
-    """Recover each subsystem's composition operations (both op families + laws).
+    """Mine each subsystem's composition patterns and diagnostic rows.
 
     Parameters
     ----------
@@ -141,7 +127,7 @@ def compute_operads(
     members
         ``subsystem_members.parquet`` (T1) — columns ``subsystem_id, symbol_id,
         repo, ...``. Fixes which subsystem each symbol belongs to and the scope
-        each operad is mined within.
+        each set of composition patterns is mined within.
     presentations
         ``presentations.parquet`` (T3) — the role quotient. Each row carries
         ``subsystem_id, view, role_id, members (list), interface_participation``.
@@ -152,7 +138,8 @@ def compute_operads(
     view
         ``"orbit" | "similarity" | "both"``. Which role quotient to project
         through (default ``"similarity"``, the working quotient). ``"both"`` emits
-        an operad per view (rows tagged by ``view``).
+        patterns per view (rows tagged by ``view``). The legacy ``"orbit"``
+        value selects exact-profile classes, not automorphism orbits.
 
     Returns
     -------
@@ -301,7 +288,7 @@ def _operad_for_subsystem(
     config_json: str,
     gen_at: str,
 ) -> tuple[list[dict[str, object]], _Tallies, bool]:
-    """Recover one subsystem's operations for one role view."""
+    """Mine one subsystem's composition patterns for one role view."""
 
     def qn(n: str) -> str:
         return (g.nodes.get(n, {}).get("qualified_name") or n)
@@ -361,8 +348,8 @@ def _operad_for_subsystem(
     out: list[dict[str, object]] = []
 
     # index of surviving generator (arity-1) ops: (r_i, r_j) present? and their
-    # support — used by the law check. Keyed by the (role-tuple) ignoring edge
-    # kind so composability is judged at the role level (per §4.3).
+    # support — used by the missing-pattern diagnostic. Keyed by role tuple,
+    # ignoring edge kind; role-level adjacency need not connect real instances.
     gen_support: dict[tuple[str, str], int] = {}
     two_step_present: set[tuple[str, str, str]] = set()
 
@@ -454,9 +441,10 @@ def _operad_for_subsystem(
         if is_boundary:
             stat.n_boundary_ops += 1
 
-    # ── 3. law violations: non_operadic bookkeeping ──
-    # 3a. missing_composite: generators R_i→R_j and R_j→R_k both recur (compose
-    #     at role level) but the 2-step composite R_i→R_j→R_k is never observed.
+    # ── 3. pattern diagnostics: legacy non_operadic bookkeeping ──
+    # 3a. missing_composite: role pairs R_i→R_j and R_j→R_k both recur, but no
+    #     R_i→R_j→R_k pattern survives enumeration and support filtering.
+    #     This can reflect the quotient, thresholds, or truncated sampling.
     by_mid: dict[str, list[tuple[str, str]]] = defaultdict(list)  # R_j -> [(R_i, R_j)]
     out_edges: dict[str, list[str]] = defaultdict(list)  # R_j -> [R_k]
     for (ri, rj) in gen_support:
@@ -469,7 +457,7 @@ def _operad_for_subsystem(
                 if ri == rj or rk == rj or ri == rk:
                     continue  # ignore degenerate composites
                 if (ri, rj, rk) in two_step_present:
-                    continue  # composite observed → associativity holds
+                    continue  # retained two-edge pattern, not an associativity proof
                 sup = min(gen_support[(ri, rj)], gen_support[(rj, rk)])
                 is_boundary = _any_public((ri, rj, rk), role_public)
                 ex = [f"{ri} -> {rj}  &  {rj} -> {rk}  (composite {ri}->{rj}->{rk} unobserved)"]
@@ -485,7 +473,8 @@ def _operad_for_subsystem(
                 if is_boundary:
                     stat.n_boundary_ops += 1
 
-    # 3b. back_call_cycle: both R_i→R_j and R_j→R_i recur (observed 2-cycle).
+    # 3b. back_call_cycle: opposite role pairs recur; concrete edges may differ.
+    # Cycles are not generic category/operad violations; the label is legacy.
     seen_cycle: set[tuple[str, str]] = set()
     for (ri, rj) in sorted(gen_support):
         if ri == rj:
@@ -509,8 +498,8 @@ def _operad_for_subsystem(
 
     stat.n_operations += stat.n_non_operadic
 
-    # ── unit-like (identity-glue) roles: R with A→R→B recurring AND direct A→B ──
-    # a reported statistic, not a column (§4.3 records units lightly).
+    # ── shortcut-pattern roles: R with A→R→B recurring AND direct A→B ──
+    # Legacy unit-like statistic, not proof that R acts as an identity (§4.3).
     stat.n_unit_like_roles = _count_unit_like(two_step_present, gen_support)
 
     return out, stat, truncated
@@ -548,23 +537,16 @@ def _associativity(
     gen_support: dict[tuple[str, str], int],
     two_step_present: set[tuple[str, str, str]],
 ) -> tuple[bool, int]:
-    """Empirical associativity/closure law for a path op.
+    """Return the legacy acceptance flag for an observed path pattern.
 
-    Arity-1 paths (generators) are trivially associative (nothing to compose):
-    ``(True, 0)``. For a 3-node path ``A→B→C``, the law holds when both its
-    generators ``A→B`` and ``B→C`` recur (they always do — the path contains
-    them) *and* the composite is itself observed (it is, by construction). So a
-    surviving 3-node op is associativity-*consistent*: ``(True, 0)``. The
-    interesting violations (generators that compose at role level but whose
-    composite is unobserved) are emitted separately as ``non_operadic`` rows —
-    they have no surviving path op to attach to. This keeps ``law_violations`` on
-    a real op meaning "sub-composites that failed to close", which for an
-    *observed* path is always 0.
+    This helper always returns ``(True, 0)``; it does not test associativity
+    or use ``gen_support`` / ``two_step_present``. Observing two edges is not
+    a law proof. Missing retained patterns are diagnosed separately using the
+    legacy ``non_operadic`` and ``law_violations`` labels.
     """
     if len(role_seq) <= 2:
         return True, 0
-    # A surviving 3-node path implies both generators present + composite present.
-    # Its associativity is consistent by construction.
+    # Legacy flag for a retained path, not an associativity check.
     return True, 0
 
 
@@ -572,8 +554,11 @@ def _count_unit_like(
     two_step_present: set[tuple[str, str, str]],
     gen_support: dict[tuple[str, str], int],
 ) -> int:
-    """Roles R that act as identity-like glue: some A→R→B recurs AND the direct
-    A→B generator also recurs (R is a pass-through in a realized composition)."""
+    """Count roles R where A→R→B and direct A→B patterns both recur.
+
+    The legacy unit-like name does not establish identity or pass-through
+    behavior; the direct and two-edge patterns can have different instances.
+    """
     units: set[str] = set()
     for (a, r, b) in two_step_present:
         if (a, b) in gen_support:
@@ -719,9 +704,9 @@ def write_manifest(
     n_operads: int,
     generated_at: str | None = None,
 ) -> Path:
-    """Merge operad presence into ``<data_dir>/ctkr/manifest.json``.
+    """Merge composition-pattern presence into ``<data_dir>/ctkr/manifest.json``.
 
-    Additive: reads any existing manifest and updates only the operad fields;
+    Additive: reads any existing manifest and updates only legacy operad fields;
     every other presence flag / counter survives intact (multiple commands share
     the file). Creates a fresh manifest if none exists.
     """

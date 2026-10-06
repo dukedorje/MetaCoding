@@ -41,7 +41,7 @@ from ctkr.llm import LLMClient, sandbox_write_guard, scratch_dir
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "label-roles",
-        help="L3: label clustered hom-profile role classes via an LLM (MetaCoding-23q.4).",
+        help="Label clustered structural profiles with source-linked LLM descriptions.",
         description=(
             "Read hom_profiles.parquet, group symbols by bucket-key "
             "equivalence at the chosen granularity, and LLM-label each "
@@ -142,7 +142,7 @@ def run(args: argparse.Namespace) -> int:
     profiles_path = ctkr_dir / "hom_profiles.parquet"
     if not profiles_path.exists():
         sys.stderr.write(
-            f"{profiles_path} not found. Run `ctkr hom-profiles` first.\n"
+            f"{profiles_path} not found. Run `ctkr structural-profiles` first.\n"
         )
         return 2
 

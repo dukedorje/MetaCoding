@@ -31,9 +31,9 @@ from ctkr.hom_profiles import DIM_IDX, NDIM
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "marginal-entropy",
-        help="Per-edge-kind marginal contribution to hom-profile entropy (leave-one-out ablation).",
+        help="Per-edge-kind contribution to structural-profile entropy (leave-one-out ablation).",
         description=(
-            "For each edge kind, zero out its hom-profile dimensions and recompute "
+            "For each edge kind, zero out its structural-profile dimensions and recompute "
             "Shannon entropy. Reports the entropy delta (baseline - ablated) ranked "
             "by importance. Positive delta = that kind helps discriminate roles."
         ),

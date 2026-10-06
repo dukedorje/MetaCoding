@@ -1,7 +1,7 @@
 [project]
 name = "ctkr"
 version = "0.0.1"
-description = "Categorical-Theoretic Knowledge Representation — graph mining + LLM enrichment over the MetaCoding code graph"
+description = "MetaCoding structural analysis — graph mining, approximate mappings and evidence-linked enrichment"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "dorje" }]

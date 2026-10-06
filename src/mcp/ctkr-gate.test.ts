@@ -218,6 +218,9 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "ctkr.nearest_symbols": { symbol_id: "0123456789abcdef" },
   "ctkr.pattern_search": {},
   "ctkr.shape_distance": { repo_a: "a", repo_b: "b" },
+  "ctkr.similar_roles": { symbol_id: "0123456789abcdef" },
+  "ctkr.structural_alignment": { repo_a: "a", repo_b: "b" },
+  "ctkr.composition_patterns": { subsystem: "s1" },
   "ctkr.role_equivalent": { symbol_id: "0123456789abcdef" },
   "ctkr.centrality_query": { metric: "pagerank" },
   "ctkr.subsystems": {},
@@ -228,10 +231,10 @@ const ARGS: Record<string, Record<string, unknown>> = {
 };
 
 describe("every registered CTKR tool is gated, not just the shared helper", () => {
-  test("all eleven refuse over an unestablished graph — and the artifacts are never opened", async () => {
+  test("all fourteen names refuse over an unestablished graph — and the artifacts are never opened", async () => {
     setManifest(T3); // no health record beside the graph
     const handlers = registerAll();
-    expect(handlers.size).toBe(11);
+    expect(handlers.size).toBe(14);
     expect(new Set(handlers.keys())).toEqual(new Set(Object.keys(ARGS)));
 
     for (const [name, handler] of handlers) {
@@ -248,7 +251,7 @@ describe("every registered CTKR tool is gated, not just the shared helper", () =
     // with a DuckDB/file error instead of a typed refusal.
   });
 
-  test("MIRROR — with fitness established the same eleven calls get PAST the gate", async () => {
+  test("MIRROR — with fitness established the same fourteen calls get PAST the gate", async () => {
     setHealth(record({ status: "HEALTHY", finished_at: T2 }));
     setManifest(T3);
     const handlers = registerAll();
@@ -265,12 +268,12 @@ describe("every registered CTKR tool is gated, not just the shared helper", () =
         reachedTheArtifacts++; // opened the artifacts and failed on the files
       }
     }
-    expect(reachedTheArtifacts).toBe(11);
+    expect(reachedTheArtifacts).toBe(14);
   }, 30_000);
 
   test("acknowledge_unestablished_fitness is on every tool's advertised schema", () => {
     const ctkr = CTKR_TOOL_DESCRIPTIONS;
-    expect(ctkr.length).toBe(11);
+    expect(ctkr.length).toBe(14);
     for (const d of ctkr) {
       const props = (d.input_schema as { properties: Record<string, unknown> }).properties;
       expect({ name: d.name, has: "acknowledge_unestablished_fitness" in props }).toEqual({

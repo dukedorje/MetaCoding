@@ -342,9 +342,9 @@ def _one_hop_identical_pair_graph() -> nx.MultiDiGraph:
     ``u`` and ``v`` each have exactly one ``CALLS:out`` edge → identical
     1-hop profiles. But ``u`` calls ``a`` (which itself calls ``c``, so
     ``a`` has ``CALLS:out=1``) while ``v`` calls ``b`` (a sink, ``CALLS:out=0``).
-    One WL round therefore splits ``u`` from ``v`` via the ``(CALLS,out)``
-    neighbor-mean block. This is the exact 1-WL-orbit collapse that motivated
-    depth 2.
+    Neighbor aggregation splits ``u`` from ``v`` via the ``(CALLS,out)``
+    neighbor-mean block. This fixture demonstrates one resolvable profile tie,
+    not an exact WL or automorphism-orbit computation.
     """
     g = nx.MultiDiGraph()
     for n in ("u", "v", "a", "b", "c"):
@@ -393,8 +393,8 @@ def test_depth2_self_prefix_equals_one_hop() -> None:
         assert two[sid][:NDIM] == [float(x) for x in v1]
 
 
-def test_depth2_splits_one_hop_identical_orbit() -> None:
-    """Two symbols identical at 1 hop must diverge at 2 hops — the WL split."""
+def test_depth2_splits_this_one_hop_profile_tie() -> None:
+    """This pair has distinct neighbor means; other profile ties can remain."""
     g = _one_hop_identical_pair_graph()
     df1, _ = compute_hom_profiles(g, depth=1)
     df2, _ = compute_hom_profiles(g, depth=2)
@@ -513,3 +513,25 @@ def test_write_manifest_overwrites_malformed(tmp_path: Path) -> None:
         (ctkr_dir / "manifest.json").read_text()
     )
     assert merged.hom_profiles is True
+
+
+def test_equal_profiles_do_not_establish_automorphism_orbits() -> None:
+    """The documented 3-cycle/4-cycle collision at both supported depths.
+
+    An automorphism cannot exchange their differently sized connected
+    components. Identical vectors therefore certify profile equality only.
+    """
+    graph = nx.MultiDiGraph()
+    for prefix, size in (("triangle", 3), ("square", 4)):
+        for i in range(size):
+            node = f"{prefix}{i}"
+            graph.add_node(node, repo="r", qualified_name=node, kind="function")
+            graph.add_edge(
+                node, f"{prefix}{(i + 1) % size}", key="CALLS", kind="CALLS"
+            )
+    assert sorted(len(c) for c in nx.weakly_connected_components(graph)) == [3, 4]
+    for depth in (1, 2):
+        frame, _ = compute_hom_profiles(graph, depth=depth)
+        profiles = {tuple(v) for v in frame["profile_vec"].to_list()}
+        assert frame.height == 7
+        assert len(profiles) == 1

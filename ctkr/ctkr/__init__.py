@@ -1,7 +1,8 @@
-"""ctkr — Categorical-Theoretic Knowledge Representation.
+"""MetaCoding structural analysis (legacy ``ctkr`` package name).
 
-Layer 1: mechanical structure mining over the MetaCoding code graph.
-Layer 3: LLM-bridged semantic enrichment of L1 outputs.
+Graph mining, approximate structural mappings and evidence-linked enrichment.
+Category theory motivates optional research; names do not confer mathematical
+or behavioral guarantees. See docs/design/structural-analysis-terminology.md.
 """
 
 __version__ = "0.0.1"

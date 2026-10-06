@@ -28,7 +28,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         help="Recurring domain role classes with no glossary term (MetaCoding-034).",
         description=(
             "Family-scoped role-equivalence sweep with the framework-idiom "
-            "filter: hom-profile bucket classes recurring across >= k features, "
+            "filter: structural-profile classes recurring across >= k features, "
             "tagged framework-vs-domain, checked against the explicit "
             "glossary-term mapping. Emits role-classes JSONL (one role_class "
             "record per class + one trailing summary record). LM-free."

@@ -7,15 +7,15 @@ emits the deck (``subsystem_cards.jsonl``) plus its L3 provenance
     A  subsystems   — partition (Stage A / T1)
     B  interfaces   — boundary + data shapes (Stage B / T2)
     C  roles        — role inventory (Stage C / T3)
-    C  operads      — composition laws (Stage C / T4)   [optional-empty]
+    C  operads      — composition patterns (legacy artifact name) [optional-empty]
     D  NL labeling  — evidence packs + L3 labels (Stage D / T5)
     E  card fusion  — subsystem_cards.jsonl             (Stage E / T5)
 
 Stages A–C are the earlier subcommands; extract-spec invokes each in-process
 when its artifact is absent (``--skip-structural`` turns that off and requires
 them present). Stages D + E always run here. Unlike the read-side MCP tools,
-this is a *batch runner* — the same split functor discovery uses (``functor``
-runner vs. ``functor_between`` tool): ``ctkr.subsystem_card`` reads the deck,
+this is a *batch runner* — the same split structural alignment uses (legacy
+``functor`` runner vs. ``structural_alignment`` tool): ``ctkr.subsystem_card`` reads the deck,
 ``ctkr extract-spec`` writes it.
 
 Determinism: with the same inputs + ``--prompt-version`` + model the deck's
@@ -45,7 +45,7 @@ _STRUCTURAL_STAGES = [
     ("subsystems", "subsystems", "A — partition"),
     ("interfaces", "interfaces", "B — interface + data shapes"),
     ("presentations", "roles", "C — role inventory"),
-    ("operads", "operads", "C — composition laws"),
+    ("operads", "operads", "C — composition patterns"),
 ]
 
 
@@ -55,7 +55,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         help="Generate the full subsystem spec deck (Stages A–E) for a project.",
         description=(
             "Orchestrate the subsystem-spec-extraction pipeline end to end: ensure "
-            "the structural stages (subsystems / interfaces / roles / operads) are "
+            "the structural stages (subsystems / interfaces / roles / composition patterns) are "
             "present (running any that are missing), then run the NL lane (Stage D "
             "— evidence packs + L3 labels) and card fusion (Stage E), emitting "
             "subsystem_cards.jsonl plus patterns.jsonl / evidence.jsonl. Cards are "
@@ -95,7 +95,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         "--view",
         default="similarity",
         choices=["orbit", "similarity"],
-        help="Role/operad quotient view the cards show (default: similarity).",
+        help="Profile grouping used by cards: orbit is legacy exact-profile equality; similarity is clustering.",
     )
     p.add_argument("--roles-per", type=int, default=None, help="Max LLM-labeled roles per card.")
     p.add_argument("--ops-per", type=int, default=None, help="Max LLM-labeled operations per card.")

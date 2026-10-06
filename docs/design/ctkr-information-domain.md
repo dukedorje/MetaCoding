@@ -1,5 +1,13 @@
 # CTKR-I — the information domain
 
+> **Research/design vocabulary, not a shipped guarantee.** This document retains
+> historical categorical terminology. Current implementations and preferred names
+> are defined in [Structural analysis: names and guarantees](structural-analysis-terminology.md).
+> Profiles are lossy signatures, mappings are approximate structural alignments,
+> and mined paths are composition patterns—not verified categorical laws.
+> Category-theory extensions are an [optional research track](category-theory-research.md),
+> after repeated useful graph/search workflows, not a prerequisite for them.
+
 > **Companion docs.** This extends [`ctkr.md`](./ctkr.md) (theoretics) and
 > [`ct-pipeline.md`](./ct-pipeline.md) (the phase ladder) to a second
 > corpus domain: a personal / organizational knowledge archive. The

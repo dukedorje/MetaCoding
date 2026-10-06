@@ -175,6 +175,10 @@ describe("rename-fork port — §7 gates at ceiling", () => {
     expect(r.gates.roleCoverage.score).toBe(1.0);
     expect(r.gates.interfacePreservation.score).toBe(1.0);
     expect(r.gates.compositionPreservation.score).toBe(1.0);
+    // A perfect heuristic score must still advertise the weaker witness check.
+    expect(r.gates.compositionPreservation.name).toBe("composition pattern coverage");
+    expect(r.gates.compositionPreservation.detail).toContain("independent role-pair witnesses");
+    expect(r.gates.compositionPreservation.detail).toContain("connected paths and common fan-in targets are not checked");
     expect(r.gates.fidelity.score).toBeGreaterThanOrEqual(0.95);
     expect(r.gates.cycleConsistency.score).toBeGreaterThanOrEqual(0.9);
     expect(r.passedAtCeiling).toBe(true);

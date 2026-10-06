@@ -8,7 +8,7 @@
  *   - direction: "a_to_b" / "b_to_a" / "both";
  *   - all §4 error / semantic modes: multiple configs, fails-filter,
  *     unknown repo, missing artifact, env unset, staleness;
- *   - min_fidelity=1.0 returns only strict functors from the mixed set.
+ *   - min_fidelity=1.0 returns only perfect checked-edge scores from the mixed set.
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -16,6 +16,7 @@ import { mkdtemp, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
+import { aliasResult } from "./ctkr-alias-test-helpers.ts";
 import { functorBetween } from "./ctkr-tools.ts";
 
 // Column specs mirror FUNCTORS_COLSPEC / FUNCTOR_EDGES_COLSPEC in functorRunner.ts.
@@ -258,6 +259,16 @@ afterAll(async () => {
 });
 
 describe("functorBetween", () => {
+  test("structural_alignment and legacy alias return identical filtered mappings", async () => {
+    const result = await aliasResult("ctkr.structural_alignment", "ctkr.functor_between", {
+      repo_a: "alpha", repo_b: "beta", direction: "both", members_a: ["a1", "a2"], limit: 1,
+    });
+    expect(result.functor).not.toBeNull();
+    expect(result.mapping).toHaveLength(1);
+    expect(result.truncated).toBe(true);
+    expect(result).toHaveProperty("reverse");
+  });
+
   test("happy path: returns the best functor + full mapping for a_to_b", async () => {
     const res = await functorBetween({ repo_a: "alpha", repo_b: "beta" });
     expect(res.functor).not.toBeNull();
@@ -336,7 +347,7 @@ describe("functorBetween", () => {
 
   // --- §4 semantics & error modes ---
 
-  test("min_fidelity=1.0 returns only strict functors from the mixed fixture", async () => {
+  test("min_fidelity=1.0 returns perfect checked-edge scores, not functor proofs", async () => {
     // alpha→beta has a strict config → returned.
     const strict = await functorBetween({ repo_a: "alpha", repo_b: "beta", min_fidelity: 1.0 });
     expect(strict.functor).not.toBeNull();
@@ -381,15 +392,15 @@ describe("functorBetween", () => {
     expect(res._note).toContain("no functor computed for beta→gamma");
   });
 
-  test("staleness: older hom-profile stamp is flagged in _note", async () => {
+  test("staleness: older structural-profile stamp is flagged in _note", async () => {
     const res = await functorBetween({ repo_a: "gamma", repo_b: "beta" });
     expect(res.functor!.functor_id).toBe("f:stale_gb");
-    expect(res._note).toContain("older hom-profile generation");
+    expect(res._note).toContain("older structural-profile generation");
   });
 
   test("non-stale functor carries no staleness note", async () => {
     const res = await functorBetween({ repo_a: "alpha", repo_b: "beta" });
-    expect(res._note ?? "").not.toContain("older hom-profile generation");
+    expect(res._note ?? "").not.toContain("older structural-profile generation");
   });
 
   // --- MetaCoding-4ty: member-set restriction + endofunctor read-side ---

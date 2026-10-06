@@ -1,41 +1,65 @@
-# MetaCoding — design docs
+# MetaCoding — design and use
 
-A local-first code-graph DB for AI coding agents. Walk a codebase, build a typed graph of symbols and their relationships, expose it over MCP. Replaces (or complements) vector RAG for multi-hop architectural reasoning.
+MetaCoding is a local-first code graph for AI coding agents: resolved symbols,
+typed relationships, source locations and text search, exposed through MCP.
+Its starting point is a useful full cycle: inspect a real dependency, make a
+change, check the result, and refresh the index. Establish repeated use before
+adding more analytical machinery.
 
-## TL;DR
+## Foundation
 
-The agent reads code through five complementary lanes:
+SCIP supplies resolved symbol relationships, LSP supports live language-server
+queries, Tree-sitter extracts syntax structure, and SQLite FTS5 covers identifiers,
+strings and comments. The embedded ladybugdb graph stores typed relationships.
+Optional analysis lanes have their own prerequisites; extraction coverage varies
+by language and index health.
 
-1. **SCIP** — at-rest, resolved symbol graph (committed code).
-2. **LSP** — live/dirty buffer overlay; languages SCIP doesn't index well.
-3. **Tree-sitter** — configs, broken code, pattern queries, bootstrap.
-4. **SQLite FTS5** — string DI, metaprogramming, reflection — the AST/LSP/SCIP blind spots.
-5. **ladybugdb (Kùzu fork)** — embedded graph store under all of it.
+The core MCP surface includes `graph_neighbors`, `graph_implementers`,
+`graph_callers`, `graph_diff`, `code_search` and `graph_cypher`, plus live LSP
+tools. Compose traversals with `graph_neighbors`; `graph_path` is not a shipped
+tool. See [the actual tool surface](design/mcp-surface.md).
 
-Exposed via MCP with a small typed surface (`graph_neighbors`, `graph_implementers`, `graph_callers`, `graph_path`, `code_search`, `graph_cypher`).
+Structural analysis (legacy package/namespace `ctkr`) adds profile similarity,
+boundaries, motifs, embeddings and approximate mappings where they help a task.
+Category theory remains an optional research track, not an implied guarantee
+of those algorithms. Offline LLM labeling can use a remote provider; the local
+index/query core does not require sending source code to one.
 
-Embeddings deferred until a query comes up that the other four lanes can't answer.
+## Start here
 
-## Layout
+- [VISION.md](VISION.md) — graph-first priorities, routine full-cycle use, and the
+  criteria for adding structural analysis or experimental theory.
+- [design/ctkr.md](design/ctkr.md) — current structural-analysis capabilities,
+  limitations and empirical acceptance; `ctkr` is the compatibility namespace.
+- [design/structural-analysis-terminology.md](design/structural-analysis-terminology.md)
+  — descriptive names, old aliases, unchanged wire identifiers and guarantees.
+- [design/category-theory-research.md](design/category-theory-research.md)
+  — theoretical inspiration and the obligations stronger mechanisms would need.
+- [design/mcp-surface.md](design/mcp-surface.md) — concrete tools and response contracts.
+- [../ctkr/README.md](../ctkr/README.md) — structural-analysis batch commands.
 
-- [VISION.md](VISION.md) — the strategic layer: why MetaCoding exists, what "grokking code" means, the four-phase ladder.
-- [design/ct-pipeline.md](design/ct-pipeline.md) — the categorical analysis pipeline (Phase 1 → Phase 4) with CT references.
-- [design/ctkr.md](design/ctkr.md) — Category-Theoretic Knowledge Representation theoretics (Layer 0 → Layer 3).
-- [notes/](notes/) — working notes, design sessions, living roadmap material.
-- [research/paper-2601.08773v1.md](research/paper-2601.08773v1.md) — the 2026 paper that motivated this (deterministic AST graphs vs LLM-extracted KGs for code RAG), with critique.
-- [research/prior-art.md](research/prior-art.md) — Joern, ChrisRoyse/CodeGraph, quyen-ngv/source-atlas. What to steal, what to skip.
-- [design/architecture.md](design/architecture.md) — the five-lane stack and why each lane earns its slot.
-- [design/schema.md](design/schema.md) — graph node/edge schema (Joern CPG flattened) and FTS table.
-- [design/mcp-surface.md](design/mcp-surface.md) — concrete MCP tools.
-- [design/ctkr-artifacts.md](design/ctkr-artifacts.md) — L1 artifact schema (`.metacoding/ctkr/`).
-- [design/ctkr-l3-artifacts.md](design/ctkr-l3-artifacts.md) — L3 artifact schema (patterns + evidence).
-- [design/storage-integration.md](design/storage-integration.md) — ladybugdb + FTS5 wrapper patterns; Bun finalizer mitigation; storage-format compatibility (lessons from Dreamball's ADR).
-- [design/build-plan.md](design/build-plan.md) — MVP order of operations.
+## Reference and research
 
-## Design principles
+- [design/architecture.md](design/architecture.md) — extraction/query architecture.
+- [design/schema.md](design/schema.md) — graph/FTS schema design; consult current
+  types and tool discovery when historical sketches differ from implementation.
+- [design/storage-integration.md](design/storage-integration.md) — embedded graph
+  and FTS storage, lifecycle and compatibility.
+- [design/ctkr-artifacts.md](design/ctkr-artifacts.md) and
+  [design/ctkr-l3-artifacts.md](design/ctkr-l3-artifacts.md) — retained artifact
+  contracts; legacy categorical identifiers do not confer categorical guarantees.
+- [design/ct-pipeline.md](design/ct-pipeline.md) — historical research ladder,
+  not today's delivery order or a claim that every construction is implemented.
+- [design/build-plan.md](design/build-plan.md) — original MVP build plan.
+- [notes/](notes/) — working notes and historical experiments.
+- [research/paper-2601.08773v1.md](research/paper-2601.08773v1.md) and
+  [research/prior-art.md](research/prior-art.md) — motivation and comparisons.
 
-- **Deterministic before probabilistic.** AST/SCIP/LSP first; LLM extraction only for edges the type system can't see.
-- **Local-first, embedded, beads-shaped.** No servers, no cloud dependencies. One process, one on-disk DB.
-- **Typed MCP surface.** Specific tools (`graph_implementers`, `graph_callers`) over raw Cypher passthrough. Lets the agent compose; doesn't make it write Cypher to find a caller.
-- **Layered fidelity.** Tree-sitter ships immediately at low fidelity; SCIP and LSP upgrade specific languages without reshaping the API.
-- **Defer what isn't load-bearing.** No embeddings v0. No taint analysis v0. Add lanes when queries demand them.
+## Operating principles
+
+- Prefer deterministic extraction and explicit evidence over inferred relations.
+- Distinguish missing index coverage from an absence of dependencies.
+- Return source locations, mapping ambiguity and measured coverage.
+- Use graph algorithms for the questions they answer; verify behavior separately.
+- Keep theory experiments optional. Promote them only with task evidence against
+  simpler methods using comparable data and budget.

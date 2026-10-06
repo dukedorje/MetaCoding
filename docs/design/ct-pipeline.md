@@ -1,4 +1,20 @@
-# CT Pipeline — the categorical analysis ladder
+# CT Pipeline — historical categorical research plan
+
+> **Status: historical research/design plan, superseded as a delivery roadmap.**
+> The current order is graph core → task-backed structural analysis → optional
+> CT experiments after routine full-cycle use. See [current design](ctkr.md),
+> [names and guarantees](structural-analysis-terminology.md), and
+> [the research track](category-theory-research.md). The phase labels, tool names,
+> and artifact sketches below preserve the original proposal; they are not a
+> shipped-feature checklist. Some components now exist, but their implemented
+> heuristics do not establish the mathematical guarantees originally envisioned.
+>
+> Current terms: structural profiles, similar roles, approximate structural
+> alignment, and composition patterns. Legacy names remain compatibility
+> identifiers. `orbit` denotes exact-profile classes, not exact automorphism
+> orbits. Equal profiles and high edge fidelity do not imply categorical or
+> behavioral equivalence. Compare each experiment against the same-data,
+> same-budget graph/search baseline on verified tasks before promotion.
 
 How MetaCoding goes from "indexed code-graph" to "extracted essence." Each phase is independently shippable. Each upgrades what came before. Read this alongside the vision doc ([`../VISION.md`](../VISION.md)) and the CTKR theoretics doc ([`ctkr.md`](./ctkr.md)).
 
@@ -76,11 +92,11 @@ It validates the artifact set under real query load before adding Layer 2 on top
 
 **What it is.** The core categorical constructions, in dependency order. Each one is a derived artifact written to `.metacoding/ctkr/` and exposed through a new MCP tool.
 
-This is where MetaCoding becomes what its name claims.
+This was the proposed research expansion, not a prerequisite for useful graph tooling.
 
 ### 2a — Hom-profile computation (Yoneda)
 
-**Concept.** The Yoneda lemma says an object is fully determined by its hom-functor — the collection of all morphisms into and out of it. Two objects with naturally isomorphic hom-functors are isomorphic. Applied to code: a symbol's *role* is determined by the typed-edge profile around it.
+**Research inspiration.** Yoneda characterizes objects through their representable hom-functors and natural transformations. A finite typed-edge count vector is not such a functor: it omits identities, path composition, and most relational detail. Similar profiles suggest candidate roles; they do not determine a symbol's role or prove isomorphism. The current public term is **structural profile**.
 
 **Computation.** For each symbol `s`, compute:
 
@@ -101,19 +117,19 @@ A `Controller` and a `Handler` from different frameworks should have similar hom
 - nLab: [Yoneda lemma](https://ncatlab.org/nlab/show/Yoneda+lemma)
 - Spivak, *Category Theory for the Sciences* — Section 3.3 on representable functors
 
-**Why this is the entry point.** It's tractable on the existing graph, requires no new infrastructure, and gives an immediately usable "same-role" predicate that doesn't depend on names. Everything else in Phase 2 builds on it.
+**Why this was the entry point.** It is tractable on the existing graph and gives name-independent similarity candidates. Whether those candidates help a task must be tested; there is no exact "same-role" predicate here.
 
 ### 2b — Functor discovery (cross-repo structural maps)
 
-**Concept.** A functor `F: C → D` is a structure-preserving map between categories: it sends objects to objects, morphisms to morphisms, and preserves composition. Two codebases solving similar problems should admit partial functors between their corresponding sub-categories — the functor *is* the explanation of the correspondence.
+**Concept.** A functor `F: C → D` maps objects and morphisms and preserves identities and composition. Whether this model usefully relates two codebases is a research question; solving similar problems does not guarantee such a correspondence or semantic equivalence.
 
-In real codebases, exact structure preservation is rare — extractor noise, refactoring drift, and idiomatic differences mean any cross-repo map has *some* edge-preservation failures. Rather than reject those, we record fidelity as edge metadata, so callers can filter to the strictness they want (1.0 = pure functor; 0.8 = robust approximation; 0.5 = exploratory).
+In real codebases, extractor noise, refactoring drift, and idiomatic differences can produce edge-preservation failures. Fidelity records observed edge preservation; thresholds filter candidates, not mathematical or semantic guarantees. Even fidelity 1.0 is not categorical equivalence or behavioral equivalence. The current public term is **approximate structural alignment**.
 
 **Computation.**
 
 1. Seed candidate mappings: for each symbol `s ∈ C`, take its top-k hom-profile-nearest neighbors in `D` (from Phase 2a).
 2. Build a bipartite graph of candidate mappings, weighted by hom-profile similarity.
-3. Find a maximal mapping `F: C₀ → D` that maximizes a fidelity score, defined as:
+3. Search for a high-scoring partial mapping `F: C₀ → D` using a fidelity score, defined in this proposal as (heuristic search does not guarantee a maximal or optimal mapping):
 
    ```
    fidelity(F) = preserved_edges / total_edges_in_C₀
@@ -124,35 +140,35 @@ In real codebases, exact structure preservation is rare — extractor noise, ref
 
 **Artifact.** `functors.parquet` — one row per discovered functor with source/target repos, the mapping table, coverage, fidelity. *Plus* `functor_edges.parquet` — one row per individual symbol-pair mapping with its local fidelity score (so consumers can re-aggregate at different thresholds).
 
-**MCP tool.** `ctkr.functor_between(repo_a, repo_b, min_coverage?, min_fidelity?)` — returns the discovered functor between the two repos. Filtering at `min_fidelity=1.0` returns pure (strict) functors only; lower values widen the result.
+**MCP tool.** `ctkr.functor_between(repo_a, repo_b, min_coverage?, min_fidelity?)` — returns the discovered functor between the two repos. Filtering at `min_fidelity=1.0` selects rows scoring full observed edge preservation; it does not certify categorical or semantic equivalence. Lower values widen the result. The preferred tool name is now `ctkr.structural_alignment`; this name remains an alias.
 
-**Terminology note.** "Strict" / "partial" / "approximate" rather than "faithful" / "lax" — the latter have specific CT meanings (faithful = hom-set-injective; lax = composition holds up to 2-cells) that don't match what we're computing. What we have is *graph-homomorphism with edge-preservation fidelity score*; we call it a functor when fidelity = 1.0 and an approximate functor otherwise.
+**Terminology correction.** Use "approximate structural alignment" for the implemented partial graph mapping. "Faithful" and "lax" have specific CT meanings that a fidelity score does not establish. An explicitly witnessed graph map can extend to a functor between free path categories; other categorical models require their equations to be respected. None of this establishes program equivalence. `functor` remains a legacy artifact/tool identifier, not a score-derived theorem.
 
 **CT references.**
 - Mac Lane — Chapter I.3 (functors)
 - Riehl, *Category Theory in Context* — Section 1.3
 - Fong & Spivak, *Seven Sketches in Compositionality* — Chapter 3 (databases as categories, schema morphisms)
 
-**What we get.** Typed cross-repo translation: "the equivalent of `crewAI.Crew` in `autogen` is `GroupChatManager`, with these mapping rules." Audit-trail, exact, no prose.
+**Intended result.** Candidate cross-repo correspondences with typed-edge evidence and uncertainty. A claim that `crewAI.Crew` corresponds to `GroupChatManager` requires source and task validation; the mapping alone does not prove they are equivalents.
 
 ### 2c — Colimit construction (shared ontology extraction)
 
-**Concept.** A colimit is the *minimal object that all the input objects map into compatibly*. For a family of repo categories `{C₁, ..., Cₙ}` with overlapping functor maps, the colimit is the minimal shared category they all instantiate. That's the **emergent ontology** — the abstract pattern the field has converged on, recovered structurally.
+**Concept.** A colimit is defined by a universal property over a specified diagram and compatible cocones. Calling it a "minimal shared ontology" is an intuition, not a consequence for arbitrary code graphs. A categorical model and suitable mappings must first be supplied.
 
-**Approach: functor-guided community detection.** Pure colimit construction (textbook pushout) requires exact functors and is brittle under noise. Instead:
+**Proposed heuristic: alignment-guided community detection.** This constructs a role-cluster summary, not a categorical colimit. A true colimit requires a specified diagram and the universal property; Louvain does not check it. The historical proposal was:
 
 1. Take all pairwise functor mappings from Phase 2b. Each mapping `F_ij(s) = t` with fidelity `c` becomes a weighted edge `s — t` (weight = c) in a meta-graph G whose nodes are all symbols across all repos.
 2. Run Louvain modularity on G. Communities become colimit object candidates (role classes). Weighted Louvain naturally weights high-fidelity functor evidence more heavily.
 3. Lift edges: for each typed edge in any source repo, project to the corresponding edge between the role classes its endpoints landed in. Keep edges supported by ≥ k repos. Record support count as edge weight.
-4. The result is a small category whose objects are emergent role classes and whose morphisms are the structural relationships shared across the corpus.
+4. The result is a graph of candidate role classes and supported relationships. It is not, merely by clustering, a colimit or a shared semantic ontology.
 
 **Threshold as a queryable parameter.** Because the meta-graph is weighted, we don't need to commit to a single threshold at build time. Stable communities across many thresholds are *persistent* (robust), narrowly-stable ones are *ephemeral* (noise or boundary cases). Persistence sweep is a follow-up tool; the v1 ships at a default modularity-stable threshold with metadata letting callers re-run at their own.
 
-**Why not the textbook pushout?** Strict categorical pushout (Option D in the design discussion) is the theoretically purer construction, requiring exact functors. Worth pursuing as a v2 once approximate-colimit results show the corpus carries signal; see [Open theoretic questions](#open-theoretic-questions).
+**Why not a categorical construction?** A pushout requires an explicit span of suitable morphisms. It is a different construction from community detection, not merely a more precise clustering algorithm. Explore it only when a defined task justifies the extra model; see [Open theoretic questions](#open-theoretic-questions).
 
 **Artifact.** `colimit.parquet` (role classes with representative symbols + modularity / persistence metadata) + `colimit_morphisms.parquet` (edges between role classes with repo-support count and weight). Final shapes hold lightly until algorithmic contact pins them down.
 
-**MCP tool.** `ctkr.essence(repo_scope, min_repo_support?, min_persistence?)` — returns the (approximate) colimit category for the given scope.
+**Proposed MCP tool (not a current registered tool).** `ctkr.essence(repo_scope, min_repo_support?, min_persistence?)` was intended to return a shared-role summary. Such a summary would not establish a categorical colimit.
 
 **CT references.**
 - Mac Lane — Chapter III.3 (limits and colimits)
@@ -160,21 +176,21 @@ In real codebases, exact structure preservation is rare — extractor noise, ref
 - nLab: [colimit](https://ncatlab.org/nlab/show/colimit), [pushout](https://ncatlab.org/nlab/show/pushout)
 - [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl) — practical colimit computation for finitely-presented categories
 
-**What we get.** The minimum shared shape that explains a family of designs. Not "what is an Agent framework?" answered in English, but the abstract category every Agent framework instantiates — and from which any specific framework can be recovered by choosing concrete representatives for each role class.
+**Intended result.** A compact, inspectable summary of shared structural evidence. Clustering does not guarantee a minimum ontology, and information lost by grouping means an original framework cannot generally be recovered by choosing class representatives.
 
 ### 2d — Operad recovery (composition algebra)
 
-**Concept.** An operad encodes the algebra of how things compose. Each operation has an arity and a way of composing. Codebases have implicit operads: the rules for how a controller composes with services, how middleware stacks combine, how plan/act/observe loops nest. Discovering the operad means recovering the composition algebra from observed call paths.
+**Research inspiration.** An operad describes multi-input operations with substitution, units, and laws. One could model selected code composition this way, but static call paths do not supply that algebra by themselves. The implementation mines **composition patterns**, not a verified operad.
 
 **Computation.**
 
 1. From call paths (length ≥ 2 in the colimit category), enumerate (role × role × role) composition triples that occur with high frequency.
-2. Build the operad incrementally: each n-ary operation is a recurring composition pattern with its arity.
-3. Verify associativity and unit laws empirically; record violations as "non-operadic" composition (interesting in itself).
+2. Collect recurring composition patterns with observed arity. This is a pattern library, not by itself an operad.
+3. Record pattern diagnostics. This does not verify associativity or unit laws: missing mined composites may reflect thresholds or lost instance information, and cycles do not violate generic category/operad axioms. `non_operadic` remains a legacy diagnostic identifier.
 
 **Artifact.** `operads.parquet` — operations with arity, role signatures, support, exemplar call paths.
 
-**MCP tool.** `ctkr.composition_rules(scope?, min_support?)` — returns the operadic composition rules for the scope.
+**Historical MCP sketch.** `ctkr.composition_rules(scope?, min_support?)`. The preferred name is now `ctkr.composition_patterns` (legacy alias retained); see the live MCP schema for subsystem/repo scope. Results are observed patterns, not verified operadic rules.
 
 **CT references.**
 - Leinster, *Higher Operads, Higher Categories* — Chapter 2
@@ -182,7 +198,7 @@ In real codebases, exact structure preservation is rare — extractor noise, ref
 - nLab: [operad](https://ncatlab.org/nlab/show/operad)
 - Fong & Spivak — Chapter 6 (operads of wiring diagrams), the most accessible entry point
 
-**What we get.** The compositional grammar a framework actually exhibits, in contrast to whatever it documents. Often these diverge — that gap is informative.
+**Intended result.** Recurring static composition patterns to compare with documentation and source. Observed call/reference paths are not necessarily executable traces or runtime ordering contracts.
 
 ---
 
@@ -192,7 +208,7 @@ In real codebases, exact structure preservation is rare — extractor noise, ref
 
 **What we get — three flavors of essence:**
 
-1. **Confirmation of known patterns.** Many L2 discoveries will map to documented design patterns (Strategy, Observer, MVC, Hexagonal). L3 labels them; we now have structural ground truth for those patterns *in this corpus*.
+1. **Confirmation of known patterns.** Many L2 discoveries will map to documented design patterns (Strategy, Observer, MVC, Hexagonal). L3 proposes labels with source evidence; these interpretations require review and are not structural ground truth.
 
 2. **Naming of unnamed patterns.** Some L2 discoveries don't match anything documented but recur across many repos. L3 proposes a name + description with evidence. These are new patterns the field has converged on without naming.
 
@@ -257,16 +273,19 @@ MetaCoding already tracks `{repo, branch, repo_commit_sha}`. Extend to `{repo, b
 
 ## How a query flows through
 
-End-to-end example: *"What's the essence of the agent-orchestrator pattern across the 59-repo corpus?"*
+Historical hypothetical example, not a measured result or current API recipe:
+*"What structural patterns recur across the agent-orchestrator corpus?"*
+The original corpus size and illustrative names below identify the proposal,
+not established correspondences.
 
 1. **Phase 1 retrieval.** `ctkr.motif_search(min_support=12, edge_kinds=[CALLS,IMPLEMENTS])` returns recurring structural patterns.
-2. **Phase 2a.** For each candidate role symbol (`Agent`, `Crew`, `Task`, …), `ctkr.role_equivalent(s)` clusters the cross-repo equivalents by hom-profile.
-3. **Phase 2b.** Pairwise functors over the 59 repos give the mapping tables — `crewAI.Crew ↔ autogen.GroupChatManager ↔ mastra.Workflow`, with edge-preservation faithfulness.
-4. **Phase 2c.** `ctkr.essence(scope=["agent-orchestrator"])` computes the colimit category — the role classes (`Orchestrator`, `Worker`, `Task`, `Tool`, `Memory`) and the edges between them shared by all 59 repos.
-5. **Phase 2d.** `ctkr.composition_rules(scope=...)` gives the operadic structure: how `Orchestrator`s compose `Worker`s and `Tool`s, what the empirically-observed arities are.
-6. **Phase 3.** L3 labels every role class and composition rule. Output: a labeled colimit category with evidence — *the* agent-orchestrator pattern, derived not declared.
+2. **Phase 2a.** For each candidate role symbol (`Agent`, `Crew`, `Task`, …), `ctkr.similar_roles` retrieves candidates by structural profile (legacy alias `ctkr.role_equivalent`); inspect their source evidence.
+3. **Phase 2b.** Pairwise functors over the 59 repos give the mapping tables — `crewAI.Crew ↔ autogen.GroupChatManager ↔ mastra.Workflow`, with edge-preservation scores and assignment ambiguity.
+4. **Phase 2c (proposed).** A shared-role summary might contain candidate classes such as `Orchestrator`, `Worker`, `Task`, `Tool`, and `Memory`. Neither those labels nor universal corpus support nor a colimit are established by this example.
+5. **Phase 2d.** `ctkr.composition_patterns` (legacy alias `ctkr.composition_rules`) reads supported role-path and fan-in patterns. These are static observations, not a recovered operadic structure.
+6. **Phase 3.** L3 proposes labels with evidence. Output: a tentative pattern summary to test against exemplars and counterexamples, not *the* agent-orchestrator pattern or a verified colimit.
 
-The same flow applies at any scope: HTTP servers, state machines, build systems, AST visitors. The pipeline is general; the corpus chooses the essence.
+This was an illustrative research flow, not a validated corpus result or semantic guarantee. Similar experiments may be tried on HTTP servers, state machines, build systems, or AST visitors; each needs an explicit comparison with simpler graph tools and source-backed task outcomes.
 
 ---
 
@@ -274,7 +293,7 @@ The same flow applies at any scope: HTTP servers, state machines, build systems,
 
 These don't block Phase 1 but will shape Phase 2 and beyond.
 
-- **Categorical pushout for true colimits (v2).** Phase 2c uses functor-guided community detection as an approximate colimit. The textbook construction (iterated pushouts over the diagram of functors) is more rigorous and requires exact (fidelity=1.0) functors. Worth implementing once the approximate version proves signal. Closest reference: Catlab.jl's diagram operations, ported to TS.
+- **Categorical pushout for true colimits (v2).** Phase 2c proposed alignment-guided community detection as a shared-role summary. It does not establish a colimit. A categorical construction needs an explicit diagram and well-defined functors; fidelity=1.0 alone is not a certificate. Worth implementing once the approximate version proves signal. Closest reference: Catlab.jl's diagram operations, ported to TS.
 - **Persistent clustering of role classes.** Functor edges carry fidelity ∈ [0, 1]. As you sweep the threshold, communities grow and merge. The *persistent* communities (stable across a wide threshold band) are robust role classes; the *ephemeral* ones are noise. This is the same idea as persistent homology applied to functor-induced equivalence — gives us a principled "this role class is real" signal without committing to a threshold. Follow-up MCP tool: `ctkr.essence_persistence(scope?)`. The same construction applies to hom-profile granularity at Phase 2a — see [`../notes/entropy-as-dial.md`](../notes/entropy-as-dial.md) for the generalized treatment.
 - **2-category structure.** Pairwise functors between repos compose. The 2-cells (natural transformations between functors) record "different ways of viewing the same correspondence" and may be where the deepest essence lives.
 - **Persistent functors over git history.** Persistent homology gives time-varying topological signatures. Is there a corresponding "persistent functor" construction over the time-filtered graph? (Likely yes, via Reeb graphs or zigzag persistence.)

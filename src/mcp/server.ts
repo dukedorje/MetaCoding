@@ -333,7 +333,7 @@ export async function serveMcp(opts: ServeOpts): Promise<void> {
     },
   );
 
-  // ---------- CTKR Phase 1 tools ----------
+  // ---------- Structural analysis (ctkr namespace + compatibility aliases) ----------
   registerCtkrTools(server);
 
   const transport = new StdioServerTransport();

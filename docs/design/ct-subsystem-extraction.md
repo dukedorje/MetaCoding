@@ -1,5 +1,13 @@
 # CT Subsystem Extraction — stack-agnostic specification pipeline
 
+> **Research/design vocabulary, not a shipped guarantee.** This document retains
+> historical categorical terminology. Current implementations and preferred names
+> are defined in [Structural analysis: names and guarantees](structural-analysis-terminology.md).
+> Profiles are lossy signatures, mappings are approximate structural alignments,
+> and mined paths are composition patterns—not verified categorical laws.
+> Category-theory extensions are an [optional research track](category-theory-research.md),
+> after repeated useful graph/search workflows, not a prerequisite for them.
+
 How MetaCoding takes **one** indexed project and extracts a per-subsystem, stack-agnostic specification — roles, composition laws, interface contract, data shapes, topology, and natural-language intent — good enough that the project can be **re-implemented from scratch in a different language and a completely different stack**.
 
 This is the design for the *subsystem-spec-extraction* use case raised in the 2026-07-13 design discussion. It composes shipped primitives (Phase 1 tools, 2a hom-profiles, the 2b functor track) with the deferred 2c/2d machinery, and defines what 2c/2d must produce *for this use case specifically*.

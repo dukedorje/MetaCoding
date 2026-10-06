@@ -1,8 +1,8 @@
 """``ctkr roles`` — per-subsystem role inventory (Stage C / §4.1, T3).
 
-Quotient each subsystem's members by depth-1 hom-profile equivalence into role
-classes (the schema's generators), emitting both the orbit-exact and the
-similarity-cluster views to ``presentations.parquet`` under ``<data_dir>/ctkr/``
+Group each subsystem's members by depth-1 structural profiles, emitting both
+exact-profile classes (legacy view name ``orbit``, not automorphism orbits) and
+similarity clusters to ``presentations.parquet`` under ``<data_dir>/ctkr/``
 and merging the presence flags into ``manifest.json``.
 
 Reads ``hom_profiles.parquet`` (should be depth-1 — the role-*surfacing* dial;
@@ -28,15 +28,15 @@ from ctkr.commands._common import add_common_flags, resolve_data_dir
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "roles",
-        help="Per-subsystem role inventory (depth-1 orbit + similarity views).",
+        help="Per-subsystem role inventory (exact-profile classes + similarity clusters).",
         description=(
-            "Quotient each subsystem's members by depth-1 hom-profile "
-            "equivalence into role classes (the presentation's generators). "
+            "Group each subsystem's members using depth-1 structural profiles. "
+            "Equal profiles do not establish structural or behavioral equivalence. "
             "Emits presentations.parquet under <data_dir>/ctkr/ with two views "
-            "per subsystem: orbit (exact-profile WL classes, conservative) and "
+            "per subsystem: orbit (legacy name for exact-profile classes) and "
             "similarity (cosine-threshold connected components at a default "
             "threshold, with a threshold sweep for per-class persistence). Each "
-            "class carries members, hom-profile centroid, an exemplar (member "
+            "class carries members, structural-profile centroid, an exemplar (member "
             "nearest the centroid), cardinality, and interface participation "
             "(from interfaces.parquet if present). Deterministic: byte-identical "
             "re-runs for a fixed --generated-at."
@@ -85,7 +85,7 @@ def run(args: argparse.Namespace) -> int:
 
     if not hp_path.exists():
         sys.stderr.write(
-            f"ERROR: {hp_path} not found — run `ctkr hom-profiles` first "
+            f"ERROR: {hp_path} not found — run `ctkr structural-profiles` first "
             "(depth 1, --kinds-filter file recommended).\n"
         )
         return 2
@@ -137,7 +137,7 @@ def run(args: argparse.Namespace) -> int:
         f"  subsystems          : {stats.n_subsystems}\n"
         f"  members (profiled)  : {stats.n_members_profiled:,}\n"
         f"  members (no profile): {stats.n_members_no_profile:,} (NL-only floor)\n"
-        f"  roles (orbit)       : {stats.n_roles_orbit:,}  "
+        f"  roles (exact-profile/orbit): {stats.n_roles_orbit:,}  "
         f"compression {stats.compression_orbit:.2f}x\n"
         f"  roles (similarity)  : {stats.n_roles_similarity:,}  "
         f"compression {stats.compression_similarity:.2f}x\n"

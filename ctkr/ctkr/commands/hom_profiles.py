@@ -1,4 +1,7 @@
-"""``ctkr hom-profiles`` — emit ``hom_profiles.parquet`` (MetaCoding-23q.1).
+"""``ctkr structural-profiles`` — emit legacy ``hom_profiles.parquet``.
+
+``hom-profiles`` remains a compatibility command alias. These typed-edge
+profiles measure structural similarity, not categorical or behavioral equivalence.
 
 Computes per-symbol typed-edge profile vectors and writes them as a
 parquet table at maximal precision (raw UInt32 counts, no quantisation).
@@ -14,8 +17,8 @@ rows whose hom-profiles are dominated by ``CONTAINS:in=1.0``.
 The ``--kind-weight KIND=W`` flag (repeatable, MetaCoding-23q.1
 weighting variant) scales an edge kind's profile dimensions by a float
 before write — e.g. ``--kind-weight CONTAINS=0.25`` to down-weight the
-directory/containment scaffolding so role discrimination reflects
-behaviour rather than the folder tree. Weighting turns the vector into
+directory/containment scaffolding so role discrimination emphasizes
+typed-edge structure rather than the folder tree, not behavioral equivalence. Weighting turns the vector into
 a Float64 variant (no longer raw UInt32 counts); the weights are
 recorded in the manifest's ``kind_weights`` field.
 """
@@ -74,12 +77,16 @@ def _parse_kind_weights(
 
 def register(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
-        "hom-profiles",
-        help="Compute per-symbol hom-profiles → hom_profiles.parquet (MetaCoding-23q.1).",
+        "structural-profiles",
+        aliases=["hom-profiles"],
+        help="Compute structural profiles → hom_profiles.parquet (compatibility alias: hom-profiles).",
         description=(
             "Compute per-symbol typed-edge profile vectors and write them as "
             "<data_dir>/ctkr/hom_profiles.parquet at maximal precision (raw "
             "integer counts; no L1-normalisation, no quantisation). "
+            "hom-profiles is a compatibility alias; artifact and schema names "
+            "remain unchanged. Profiles measure structural similarity, not "
+            "categorical or behavioral equivalence. "
             "Implements MetaCoding-23q.1; see docs/notes/entropy-as-dial.md "
             "for the granularity-as-query-time-knob framing."
         ),
@@ -117,10 +124,12 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         help=(
             "Neighborhood depth of the profile. 1 (default) = raw per-symbol "
             "typed-edge counts (byte-identical to the historical artifact). "
-            "2 = one Weisfeiler-Leman refinement round: each symbol's 1-hop "
-            "vector concatenated with, per (edge_kind,direction) block, the "
-            "mean 1-hop vector of neighbors reached via that block. Splits "
-            "many 1-WL automorphism orbits (functor-discovery seeds). Depth-2 "
+            "2 = WL-inspired neighbor-mean expansion, not exact Weisfeiler-Leman "
+            "refinement: each symbol's 1-hop vector concatenated with, per "
+            "(edge_kind,direction) block, the mean 1-hop vector of neighbors "
+            "reached via that block. This lossy signature splits "
+            "some depth-1 exact-profile classes (alignment seeds); this does not "
+            "identify automorphism orbits or prove equivalence. Depth-2 "
             "output is a Float64 variant of NDIM+NDIM*NDIM dims."
         ),
     )
@@ -159,7 +168,7 @@ def run(args: argparse.Namespace) -> int:
     )
     depth = int(getattr(args, "depth", 1))
     sys.stderr.write(
-        f"computing hom-profiles (kinds_filter={filter_label}, "
+        f"computing structural profiles (kinds_filter={filter_label}, "
         f"kind_weights={weights_label}, depth={depth})...\n"
     )
     df, stats = compute_hom_profiles(
@@ -204,7 +213,7 @@ def run(args: argparse.Namespace) -> int:
     manifest_desc = str(manifest_path) if manifest_path else "(skipped — non-canonical --out)"
     weights_desc = weights_label
     if stats.depth > 1:
-        precision_desc = f"Float64 (depth-{stats.depth} WL-refined variant)"
+        precision_desc = f"Float64 (depth-{stats.depth} neighbor-mean variant)"
     elif stats.weighted:
         precision_desc = "Float64 (weighted variant)"
     else:

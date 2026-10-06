@@ -1,75 +1,113 @@
 # MetaCoding — Vision
 
-> *MetaCoding exists to truly grok code, programs, and the flows and shapes that make computers do things. To use category theory to extract the essence of knowledge — knowledge that often cannot be put into words, that does not yet have concepts, that may not be fully conceptualizable.*
-
-This is the strategic layer. The design docs under [`design/`](./design/) say how; this says what for and why.
+MetaCoding helps coding agents use a codebase's structure while doing real work.
+The immediate goal is a reliable local graph: find a symbol, trace a dependency,
+change the code, test it, and check the updated graph. Structural analysis earns
+its place when it makes that cycle more useful.
 
 ## The thesis
 
-A codebase is not *like* a category — it **is** one.
+Names and text are useful, but they do not capture every relationship. Typed
+calls, references, implementations, and containment can help an agent find what
+it would otherwise miss. The graph complements source reading and text search;
+it does not replace them or fully describe a program's behavior.
 
-- Symbols are objects.
-- Typed edges (CALLS, IMPLEMENTS, IMPORTS, REFERENCES, EXTENDS, OVERRIDES, INJECTS, CONTAINS, ANNOTATES, TYPE_OF) are morphisms.
-- Edge-path concatenation is composition.
+Across projects, similar wiring may reveal similar roles under different names.
+That is a testable hypothesis, not a promise that matching graphs imply matching
+meaning. We want findings an agent can inspect, challenge, and use in a task.
 
-A corpus of N codebases is a disjoint union of N categories, plus the inter-corpus edges (shared dependencies, ported subsystems, role analogies) that connect them. Once you take this seriously, the question changes from *"what does this code do?"* to *"what is the shape of what this code is?"* — and category theory turns out to have the right vocabulary for that question.
+## The delivery ladder
 
-The deeper claim: there are essences in programs that cannot be cleanly named. They're patterns that haven't been written down, idioms a community has converged on without noticing, structural roles that don't map to any documented design pattern. They show up as **isomorphisms between sub-categories**: this Zig hot loop and that TypeScript stream pipeline are the same shape, even though no one would describe them with the same words. MetaCoding's job is to surface those shapes — to grok the code by reading its structure, not its prose.
+### 1. A useful graph core
 
-## What "grokking" means here
+Make indexing, health reporting, typed MCP queries, and source evidence work
+reliably on a real project. Prioritize the full loop:
 
-Three concrete capabilities, in increasing depth:
+> index → inspect → change → test → re-index → verify
 
-1. **See the same role under different names.** `crewAI.Agent`, `autogen.ConversableAgent`, `mastra.Agent` should cluster — not because their names rhyme but because their hom-profiles match (Yoneda). The framework name is accidental; the role is essential.
+Repeat it during routine development. Incomplete extraction must be visible;
+missing graph evidence must not silently become a negative answer. Improve the
+core where those cycles fail before expanding the feature surface.
 
-2. **Find isomorphisms between categories.** Given two repos, discover the maximal structure-preserving map (functor) between them. That map *is* the explanation of how the two designs correspond — typed, audit-trail, exact. No prose required.
+### 2. Structural analysis with task evidence
 
-3. **Extract the essence — the colimit.** Given N repos solving similar problems, compute the minimal shared ontology they all instantiate. That's the *abstract pattern* the field has converged on, recovered from behavior rather than declared by anyone.
+Build a thin layer on the graph, using the existing `ctkr` implementation:
 
-These are not metaphors for what we want. They are the **constructions** we want to compute.
+- **Structural profiles and similar roles:** candidate symbols worth reading.
+- **Subsystems and interfaces:** candidate boundaries and observed dependencies.
+- **Approximate structural alignment:** partial cross-repo mappings with edge
+  fidelity, coverage, and assignment ambiguity.
+- **Composition patterns:** recurring role paths and fan-in, with exemplars.
 
-## Why this, why now
+Motifs, embeddings, centrality, topological signatures, and LLM labeling already
+provide additional experimental building blocks. Availability is not evidence
+of usefulness. Keep only the detail that helps an observed task, and show the
+source evidence and limits with each result.
 
-Vector RAG and FTS handle "find me the chunk that mentions X." MetaCoding's existing graph + FTS surface handles "find me the symbols related to X." Neither answers: *what is X categorically? What role does it play in the corpus? What's its essence?* That gap is what CTKR fills.
+Profiles are finite feature summaries, not full hom-functors. Equal profiles
+form exact-profile classes, not proven automorphism orbits. Approximate mappings
+do not establish categorical or behavioral equivalence. Static composition
+patterns do not establish runtime protocols or operad laws.
 
-There is also a practical lever: foundation models can label structural discoveries with natural language. Layer 1 (cheap structural mining) + Layer 2 (categorical machinery) + Layer 3 (LLM enrichment) gives us an emergent pattern library that is **both** rigorously grounded **and** legible to humans. Structure first, meaning second.
+### 3. Experimental category theory, after routine full-cycle use
 
-## The ladder
+Category theory remains an inspiration and research track. It offers ways to
+state questions about composition, correspondences, and shared structure. A
+graph can generate a free category; using that model does not itself add
+semantic evidence to the graph.
 
-Four phases, each independently shippable, each upgrading what came before. Details in [`design/ct-pipeline.md`](./design/ct-pipeline.md).
+Research on functors, colimits, operads, and cross-language structure remains
+valuable. Before promoting a construction, define its mathematical objects and
+laws, distinguish the exact construction from its heuristic approximation, and
+test whether it helps tasks more than simpler methods. Formal properties within
+a model and empirical usefulness in code are separate obligations.
 
-- **Phase 1 — Make L1 queryable.** Expose the already-built mining artifacts (motifs, embeddings, centrality, shape signatures, learned patterns) through typed MCP tools. Immediate utility, no new math.
-- **Phase 2 — Layer 2: categorical machinery.** Hom-profile computation, functor discovery, colimit construction, operad recovery. This is where MetaCoding becomes what its name claims.
-- **Phase 3 — Essence extraction.** L2 finds the shapes; L3 names them. Patterns that don't yet have words get them. Patterns that already have words (Factory, Observer) get confirmed structurally. New patterns surface for the first time.
-- **Phase 4 — Infrastructure for scale.** Multi-tier embeddings with unified KNN, incremental index maintenance, provenance + immutability, worktree-aware reads. Makes the system usable continuously rather than as a one-shot batch.
+## What counts as progress
 
-## What this is not
+Compare the same task under three conditions: source/text tools, the graph core,
+and the graph plus a candidate analysis. Keep the repository revision, extraction
+coverage, settings, evidence, false matches, missed findings, and verified task
+outcome. Record measured effort or cost when available. Repeat through the full
+change/test/re-index cycle, rather than judging a single attractive visualization.
 
-- **Not a code search engine.** Those exist and are good at what they do.
-- **Not a documentation generator.** Documentation is the *output* of grokking, not the goal.
-- **Not a pattern-detection tool that matches against a hardcoded list of Design Patterns.** No top-down ontology. The patterns are *discovered*, not *recognized*.
-- **Not an LLM wrapper.** LLMs label what structural analysis finds. They don't drive the analysis.
+The question is concrete: did the added analysis help locate a dependency,
+choose a boundary, make a correct change, or reject a bad correspondence? No
+speed, accuracy, or cost improvement is assumed without that comparison.
 
-## Related projects
+## Current state and limits
 
-MetaCoding is part of a small constellation:
+The code graph, FTS, typed MCP surface, and offline structural-analysis tooling
+exist. Coverage differs by extractor and language. Offline artifacts can be
+missing or stale. Health gating reduces silent failures, but artifact timestamps
+are not complete run-level provenance. Partial alignments can contain ambiguous
+symbol assignments even when their aggregate scores look strong.
 
-- **[Dreamball](https://github.com/worldtree/Dreamball)** — signed, evolvable, aspect-oriented containers (`look`/`feel`/`act`). Memory Palace is its composed-application archiform. CTKR discoveries (patterns, functor maps, essence extractions) are natural Memory Palace inscriptions.
-- **Orchestrators / harness-bench-a** — the self-evolving harness. Uses MetaCoding's FTS5 corpus for Kan-lift sensing; its evolution loop generates iterations and reflections that MetaCoding can index as another corpus member. MetaCoding's job is understanding code; the harness's job is evolving code.
+The priority is routine, evidence-backed use of the existing pieces, not a new
+categorical layer as a prerequisite for shipping value. The `ctkr` namespace,
+legacy commands/tools, artifact names, and schema identifiers stay compatible.
+See [names and guarantees](design/structural-analysis-terminology.md) for the
+canonical compatibility contract, [`design/ctkr.md`](design/ctkr.md) for current
+capabilities, and [`design/mcp-surface.md`](design/mcp-surface.md) for the tool guide.
+The [research track](design/category-theory-research.md) states the obligations
+for stronger categorical claims.
 
-The boundary: MetaCoding owns code understanding. Orchestrators owns evolution-loop state. Dreamball owns the container protocol. They compose; they do not merge.
+## Research horizons
 
-## Open horizons
+- **Cross-language roles:** which structural signals survive a language change,
+  and where do extractor differences dominate?
+- **Change over time:** can graph histories help distinguish architectural drift
+  from local refactoring?
+- **Patterns without names:** can exemplars and contrast pairs make a recurring
+  structure useful before a label is agreed?
+- **Compositional models:** when do explicit categorical constructions improve
+  reasoning beyond profile similarity, clustering, and graph alignment?
 
-Things this vision implies but does not yet prescribe:
+The historical [`design/ct-pipeline.md`](design/ct-pipeline.md) preserves the
+original four-phase research plan and references. It is not the current delivery
+order or a list of mathematical guarantees shipped by the product.
 
-- **Time as a dimension.** Every edge has a git-history birth/death. Persistent homology over the temporal filtration reveals architectural drift, refactoring waves, deprecation patterns. The schema can carry it; the analyses come later.
-- **Cross-language essence.** Does the categorical structure of an idea survive translation between languages? The Yoneda hypothesis says yes — same hom-profile, same role, regardless of syntax. Empirical question.
-- **Closed refinement loops.** Once L3 labels feed back as priors for L2 functor search, the labeling loop becomes self-improving. The mathematics of that fixed point are interesting.
-- **Pre-conceptual knowledge.** The frontier: can we surface essences that have no natural-language name yet, present them in a way humans can perceive (visualizations, exemplars, contrast pairs), and let *conceptualization* happen on the human side? This is the deepest version of "grok."
+## Project boundaries
 
-## Status
-
-The bones exist: the indexed code-graph (Layer 0), the L1 mining pipeline (motifs, embeddings, persistent homology, centrality), and an L3 motif-labeling loop. What's missing is the categorical machinery (Layer 2), an MCP surface for the CTKR artifacts, and the incremental infrastructure that lets the whole thing run continuously.
-
-That's the work. The phased plan in [`design/ct-pipeline.md`](./design/ct-pipeline.md) lays it out.
+MetaCoding owns code indexing and understanding. Orchestrators owns evolution-loop
+state. Dreamball owns its container protocol. They can exchange evidence and
+artifacts without merging their responsibilities.

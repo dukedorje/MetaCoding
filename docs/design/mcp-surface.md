@@ -107,62 +107,173 @@ Current type errors / lints. Poll after edits.
 
 ---
 
-## CTKR tools — categorical knowledge over the cross-repo corpus
+## Structural-analysis tools (`ctkr.*`)
 
-These read the Parquet/JSONL artifacts under `.metacoding/ctkr/` (see
-[`ctkr-artifacts.md`](ctkr-artifacts.md) and [`ctkr.md`](ctkr.md)). The data
-dir is resolved from `METACODING_CTKR_DATA_DIR` (mandatory — no implicit
-corpus fallback).
+These read derived Parquet/JSONL artifacts under `<data_dir>/ctkr/` (see
+[`ctkr-artifacts.md`](ctkr-artifacts.md) and [`ctkr.md`](ctkr.md)). Set
+`METACODING_CTKR_DATA_DIR` to the **data directory**, not its `ctkr/` child.
+It is mandatory; there is no implicit corpus fallback.
+
+The current [names and guarantees](structural-analysis-terminology.md) contract
+separates implemented graph analytics from the optional
+[category-theory research track](category-theory-research.md). Preferred tools
+and compatibility aliases share inputs, outputs, and implementation:
+
+| Preferred name | Legacy alias |
+|---|---|
+| `ctkr.similar_roles` | `ctkr.role_equivalent` |
+| `ctkr.structural_alignment` | `ctkr.functor_between` |
+| `ctkr.composition_patterns` | `ctkr.composition_rules` |
+
+Existing artifact names, fields, and enum values are unchanged. Other tool names
+remain unchanged. Call `describe_api` for the full live schemas; the summaries
+below show their main arguments rather than every constraint/default.
+
+### Health and result envelope
+
+All these tools accept `acknowledge_unestablished_fitness?` (default false).
+Their result is wrapped as:
+
+```text
+success: {ok: true, result: <payload below>, health, caveat?}
+refusal: {ok: false, error: "INDEX_FITNESS_UNESTABLISHED", message, health}
+```
+
+A refusal has **no `result`**. Do not turn it into an empty finding. The tools
+check graph health beside the artifacts and whether the artifact manifest
+predates the latest graph fitness verdict. Missing or unestablished health and
+missing/stale generation stamps cause refusal by default. A deliberate
+acknowledgment permits a caveated read, not a claim that the data is now fit.
+This timestamp check is not full per-run provenance. Missing artifact files can
+still fail separately after the health gate permits a read.
 
 ### `ctkr.motif_search`
+```text
+input:  min_support?, edge_kinds?, repo_coverage_min?, label?, limit?
+payload: MotifRow records, optionally joined with LLM labels
 ```
-input:  min_support?, edge_kinds?, repo_coverage_min?, label?, limit=50
-output: MotifRow records (frequent typed subgraphs), optionally L3-labeled
-```
-"What structural shapes recur across the corpus, and where?"
+"What indexed shapes recur, and where?" A recurring motif is a candidate
+pattern, not proof of a shared purpose.
 
 ### `ctkr.nearest_symbols`
+```text
+input:  symbol_id | qualified_name, k?, cross_repo_only?, embedding_kind?
+payload: nearest symbols by embedding cosine distance
 ```
-input:  symbol_id | qualified_name, k=10, cross_repo_only=false, embedding_kind=structural
-output: k nearest symbols by structural-embedding cosine distance
-```
-Similarity by learned structural embedding (DeepWalk/GraphSAGE).
+Uses learned structural embeddings, not raw profile counts. The current reader
+uses the existing structural artifact; `embedding_kind` routing is not implemented.
+Do not assume passing another kind selects a different embedding index.
 
-### `ctkr.role_equivalent`
+### `ctkr.similar_roles` (alias: `ctkr.role_equivalent`)
+```text
+input:  symbol_id | qualified_name, k?, scope? (seed repo), cross_repo_only?
+payload: candidate symbols with hom_profile_distance
 ```
-input:  symbol_id | qualified_name, k=10, scope? (repo), cross_repo_only=false
-output: k symbols playing the same structural role, by hom-profile cosine KNN
+Cosine KNN over structural profiles in `hom_profiles.parquet`. `scope`
+disambiguates seed names; `cross_repo_only` excludes the seed's repo. Both the
+artifact filename and output field keep their legacy names. The finite profile
+summarizes typed-edge features; similarity is not a same-role predicate or
+proof of categorical/behavioral equivalence. Even exact profile equality does
+not establish an automorphism orbit. Inspect the source before using a match.
+
+### `ctkr.structural_alignment` (alias: `ctkr.functor_between`)
+```text
+input:  repo_a, repo_b, direction? (a_to_b|b_to_a|both),
+        min_coverage?, min_fidelity?, min_pair_fidelity?, min_margin?, limit?,
+        members_a?, members_b?, exclude_identity?
+payload: {functor, reverse?, mapping, n_ambiguous, truncated, _note?}
 ```
-The **categorically-honest "same role" query** (Phase 2a). Matches turn on the
-shape of a symbol's typed-edge neighbourhood — `hom_profiles.parquet` — so they
-are independent of name and of a repo's naming conventions. `cross_repo_only`
-is the cross-repo role-equivalence predicate. `scope` disambiguates a
-`qualified_name` that appears in several repos. Distinct from
-`nearest_symbols`: that uses learned embeddings; this uses the raw typed-edge
-count vector at maximal precision (see [entropy-as-dial](../notes/entropy-as-dial.md)).
+Reads precomputed partial mappings. `functor` and related artifact/output fields
+are compatibility identifiers. The summary includes coverage, edge fidelity,
+assignment ambiguity, and an optional sampled two-path diagnostic. Mapping
+rows include similarity, margin, ambiguity, and pair fidelity. Missing pair
+support can be `null`; it is not evidence of perfect preservation.
+
+Use assignment margins and `is_ambiguous`, not just aggregate fidelity, to judge
+individual pairs. A high-scoring partial mapping is not a guaranteed maximal
+map, categorical equivalence, behavioral equivalence, or a safe port. Even
+fidelity 1.0 describes observed edge preservation under the scoring rules.
+
+### `ctkr.subsystems`
+```text
+input:  repo?, resolution?, min_persistence?, boundary_sample?
+payload: {subsystems, config, _note?}
+```
+Returns a consensus graph partition and boundary-confidence metadata. Review
+low-confidence members and those placed by directory locality rather than
+structural signal. Stability across settings is not proof of a correct boundary.
+
+### `ctkr.interface_of`
+```text
+input:  subsystem, repo?, direction? (provides|consumes),
+        boundary_shapes_only?, limit?
+payload: observed boundary edges, exports, dependencies, data shapes,
+         alphabet_coverage, truncation and notes
+```
+Returns indexed interface evidence, not a complete behavioral contract.
+`alphabet_coverage` helps distinguish thin evidence from extractor limitations.
+
+### `ctkr.composition_patterns` (alias: `ctkr.composition_rules`)
+```text
+input:  subsystem?, repo?, view? (orbit|similarity),
+        op_kind? (path|fan_in|non_operadic), min_support?, boundary_only?, limit?
+payload: operations, violations, protocol_roles, counts, truncation and notes
+```
+Reads `operads.parquet`, produced by `ctkr composition-patterns` (legacy command
+`ctkr operads`). The `orbit` view means **exact-profile classes**, not exact
+automorphism orbits. `similarity` uses threshold-based role clusters.
+
+Paths and fan-in are observed structural patterns, not verified operad laws or
+runtime order. `violations`, `non_operadic`, `missing_composite`, and
+`back_call_cycle` are retained diagnostic identifiers. Missing paths can result
+from thresholds or lost instance detail; a cycle does not violate a generic
+category/operad axiom. Boundary flags and `protocol_roles` do not certify a
+runtime protocol.
+
+### `ctkr.subsystem_card`
+```text
+input:  subsystem, repo?, sections?
+payload: {card, _note?}
+```
+Reads the offline spec deck (`ctkr extract-spec`). Section identifiers include
+`intent`, `roles`, `composition_rules`, `interface`, `data_shapes`, `topology`,
+`exemplar_slices`, `nl_only_symbols`, and `dissonance`; `composition_rules` stays
+as a compatibility field. Inspect provenance and source exemplars. Generated
+intent and labels are interpretations, not facts guaranteed by the graph.
 
 ### `ctkr.pattern_search`
+```text
+input:  label?, source_kind?, min_confidence?, instances_in_repo?, limit?
+payload: PatternRow records with attached evidence
 ```
-input:  label?, source_kind? (motif|role-cluster|analogy), min_confidence?, instances_in_repo?, limit=50
-output: PatternRow records (L3-labeled) with attached evidence
-```
-The labeled-knowledge lane. `source_kind='role-cluster'` surfaces the output of
-`ctkr label-roles` (the L3 role-class labeler); `source_kind='motif'` the
-labeled motifs.
+Reads LLM-labeled findings. `source_kind='role-cluster'` selects role labels;
+`source_kind='motif'` selects motif labels. Confidence is label metadata, not a
+calibrated probability of semantic correctness.
 
 ### `ctkr.shape_distance`
+```text
+input:  repo_a (+ repo_b for a pair | + k_nearest for nearest repos)
+payload: H₁ persistence-diagram distance(s) between repos
 ```
-input:  repo_a (+ repo_b for a pair | + k_nearest for top-k)
-output: bottleneck H₁ Wasserstein distance(s) between repos
-```
-Topological similarity between whole repos. Distance `-1` = pair absent from
-`wasserstein_h1.parquet`.
+Reads `wasserstein_h1.parquet`. In pair mode, `distance: null` means the pair is
+absent. A diagram distance depends on the graph construction and filtration;
+it does not measure behavioral equivalence.
 
 ### `ctkr.centrality_query`
-```
+```text
 input:  metric (pagerank|betweenness|eigenvector), repo?, kind?, top_k?
-output: per-symbol centrality scores joined with spectral cluster assignments
+payload: per-symbol centrality scores joined with spectral cluster assignments
 ```
+The `kind` argument is accepted but not applied in the current reader; inspect
+returned notes. Centrality ranks graph position, not semantic importance.
+
+### Use in a task
+
+Start with graph/search evidence, then add the smallest structural query that
+could improve a decision. Inspect its exemplars and near-misses, make the change,
+run project checks, re-index, and verify. Compare outcomes and effort with the
+same-data, same-budget graph/search baseline over repeated tasks. An attractive
+cluster or high mapping score alone does not establish product value.
 
 ---
 
@@ -179,7 +290,7 @@ live surface and exact input schemas.
 ## Tools we deliberately do NOT expose
 
 - `vector_search` (raw) — exposed instead as the purpose-built
-  `ctkr.nearest_symbols` / `ctkr.role_equivalent`. No generic kNN endpoint.
+  `ctkr.nearest_symbols` / `ctkr.similar_roles`. No generic kNN endpoint.
 - `extract_with_llm` — out of scope at query time. The graph is deterministic;
   LLM labeling happens offline in the L3 build (`ctkr label-roles`,
   `ctkr label-motifs`) and is read back via `ctkr.pattern_search`.

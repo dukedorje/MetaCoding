@@ -1,36 +1,36 @@
-"""Role inventory — Stage C / §4.1 (subsystem-extraction T3).
+"""Structural role inventory — Stage C / §4.1 (subsystem-extraction T3).
 
-Quotient each subsystem's members by **depth-1** hom-profile equivalence to
-recover the subsystem's *generators*: the essential role classes. Depth 1 is the
-role-*surfacing* dial (MetaCoding-4ty): at depth 1 you *want* the automorphism
-orbits, so a subsystem's 14 concrete validators collapse to one ``Validator``
-generator. (Depth 2 splits orbits for 1:1 correspondence — the wrong dial for
-surfacing; that lives in the T6 port-verifier.)
+Group each subsystem's members by **depth-1** structural profiles to surface
+candidate role classes. Equal typed-degree vectors can merge structurally or
+behaviorally different symbols. Depth 2 adds neighbor means and can split some
+of these ties; neither depth computes automorphism orbits or exact WL classes.
+The presentation/generator vocabulary in the design is research inspiration,
+not a claim that these classes recover a categorical presentation.
 
-Two views are always emitted, per the design's "orbit-exact vs
-similarity-cluster both emitted":
+Two views are always emitted:
 
-- **orbit** — the conservative quotient. Members with a *byte-identical* depth-1
-  profile vector share a class: exact Weisfeiler-Leman orbits (the WL classes
-  from the 2-hop work). No threshold, ``persistence=1.0`` (exact classes are
-  definitional).
-- **similarity** — the working quotient. Cosine-threshold connected components
-  over the max-precision profile vectors at a default threshold, with a
-  threshold sweep supplying per-class ``persistence`` (mean within-class
-  co-association across the sweep — the same robustness story as the T1
-  partition's resolution sweep). Discretisation stays at query time per the
-  entropy-as-a-dial contract: we cosine over the raw vectors, never a quantised
-  copy.
+- **exact-profile class** (legacy wire value ``orbit``) — members with equal
+  profile tuples share a class. Equality is tested after Float64 conversion,
+  not as byte equality of the original artifacts. No threshold is used, and
+  ``persistence=1.0`` marks definitional equality, not semantic certainty.
+- **similarity** — cosine-threshold connected components over the profile
+  vectors, with a threshold sweep supplying per-class ``persistence`` (mean
+  within-class co-association across the sweep). Transitive chains can join
+  members whose pairwise cosine is below the threshold. Discretisation stays
+  at query time; the vectors are not quantised here.
+
+The ``presentations`` artifact/API and ``orbit`` enum, helper, and statistics
+names remain compatibility identifiers. Public wording is structural analysis.
 
 The **zero-profile floor** (§2.3): edgeless members have a zero profile vector.
-In the orbit view they naturally collapse to one class (all-zeros is one tuple);
-in the similarity view cosine is undefined (zero norm), so rather than explode
-them into singletons we group every zero-profile member into a single dedicated
-"isolated" class per view. Structure genuinely cannot discriminate them — that
-is the honest division of labour the floor forces, and the T5 NL lane specs them
-from source text.
+In the exact-profile view they collapse to one class (all-zeros is one tuple).
+In the similarity view cosine is undefined (zero norm), so we group every
+zero-profile member into one dedicated "isolated" class per view. These profiles
+cannot distinguish them. Zero vectors can also result from filtering edge kinds
+or zero weights, so they do not always mean the original node was edgeless.
+The T5 NL lane can supply source-text context.
 
-Every class carries: member list, the hom-profile **centroid**, an **exemplar**
+Every class carries: member list, the structural-profile **centroid**, an **exemplar**
 (the member nearest the centroid — a re-implementer needs the role plus one
 concrete instance, not all 14), cardinality, and its **interface participation**
 (does any member appear in the subsystem's ``provides``/``consumes`` surface? —
@@ -71,9 +71,8 @@ logger = logging.getLogger("ctkr.presentations")
 # Cosine threshold the emitted similarity view is cut at, plus the sweep the
 # per-class persistence is measured over. The default is always unioned into the
 # sweep so the emitted partition is one of the points it is scored against. 0.90
-# is a deliberately strict default: within a *single subsystem* same-role members
-# have near-identical typed-edge mixes, so a high bar keeps distinct roles apart
-# while still merging the true orbit-with-jitter.
+# is a deliberately strict heuristic for similar typed-edge mixes within a
+# subsystem. It does not establish true roles or automorphism orbits.
 DEFAULT_THRESHOLD: float = 0.90
 DEFAULT_SWEEP: tuple[float, ...] = (0.80, 0.85, 0.90, 0.95, 0.99)
 DEFAULT_PROFILE_DEPTH: int = 1
@@ -106,13 +105,14 @@ def compute_role_inventory(
     profile_depth: int = DEFAULT_PROFILE_DEPTH,
     generated_at: str | None = None,
 ) -> tuple[pl.DataFrame, RoleInventoryStats]:
-    """Quotient each subsystem's members into role classes (both views).
+    """Group each subsystem's members into structural role classes (both views).
 
     Parameters
     ----------
     hom_profiles
-        ``hom_profiles.parquet`` — columns ``symbol_id, repo, qualified_name,
-        profile_vec``. Should be **depth 1** (the role-surfacing dial); a
+        Structural profiles in legacy ``hom_profiles.parquet`` — columns
+        ``symbol_id, repo, qualified_name, profile_vec``.
+        Should be **depth 1** (the role-surfacing dial); a
         different depth is accepted but recorded in ``profile_depth`` so the
         artifact is self-describing. Filtering ``--kinds-filter file`` upstream
         is recommended (file rows carry only ``CONTAINS:in`` and are not roles).
@@ -132,7 +132,8 @@ def compute_role_inventory(
     -------
     (pl.DataFrame, RoleInventoryStats)
         DataFrame columns in ``PRESENTATIONS_COLUMNS`` order — two rows-groups
-        per subsystem (``view="orbit"`` and ``view="similarity"``).
+        per subsystem (legacy ``view="orbit"`` for exact-profile classes,
+        and ``view="similarity"``).
     """
     start = time.perf_counter()
     gen_at = generated_at or datetime.now(tz=UTC).isoformat()
@@ -267,8 +268,9 @@ def compute_role_inventory(
 def _orbit_classes(
     members: list[str], prof_vec: dict[str, np.ndarray]
 ) -> list[list[str]]:
-    """Exact-profile orbits: members with a byte-identical depth-1 vector.
+    """Exact-profile classes under tuple equality after Float64 conversion.
 
+    The legacy helper name does not mean automorphism or WL orbits.
     Returns each class's member list (sorted), classes ranked ``(-size, min
     member id)``. All-zero vectors collapse into one class naturally (one tuple).
     """

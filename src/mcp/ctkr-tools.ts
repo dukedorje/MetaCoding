@@ -1,7 +1,8 @@
 /**
- * CTKR Phase 1 MCP tool implementations.
+ * Structural-analysis MCP tool implementations (legacy ctkr namespace).
+ * Preferred tool names and compatibility aliases share handlers and schemas.
  *
- * Five typed tools over the Layer-1 artifacts:
+ * Initial typed tools over the Layer-1 artifacts:
  *   ctkr.motif_search     — search frequent typed subgraphs
  *   ctkr.nearest_symbols  — brute-force cosine KNN over embeddings
  *   ctkr.pattern_search   — search L3 labeled patterns + evidence
@@ -230,12 +231,12 @@ export interface NearestSymbolRow {
   distance: number;
 }
 
-/** KNN result row for ctkr.role_equivalent. */
+/** KNN result row for ctkr.similar_roles (legacy role_equivalent schema). */
 export interface RoleEquivalentRow {
   symbol_id: string;
   qualified_name: string;
   repo: string;
-  /** Cosine distance over raw hom-profile vectors. Range [0, 1] (counts are non-negative). */
+  /** Cosine distance over structural profile vectors. Legacy field name retained. */
   hom_profile_distance: number;
 }
 
@@ -265,7 +266,7 @@ export interface CentralityResult {
   _note?: string;
 }
 
-/** Functor-level summary for ctkr.functor_between (§4). One directed run. */
+/** Approximate alignment summary for ctkr.structural_alignment. Legacy fields retained. */
 export interface FunctorSummary {
   functor_id: string;
   repo_src: string;
@@ -279,14 +280,14 @@ export interface FunctorSummary {
   /**
    * Fraction of committed mappings that are coin-flip ties (MetaCoding-265).
    * High (~0.9 on real code) = the per-symbol mapping is an aggregate-only
-   * signal: coverage/fidelity/cycle-consistency stay meaningful, the individual
-   * symbol↦symbol rows are unreliable and must not be read as correspondences.
+   * signal: coverage/fidelity/cycle-consistency are diagnostics, not guarantees;
+   * individual symbol↦symbol rows are unreliable, not established correspondences.
    */
   ambiguity_mass: number;
   generated_at: string;
 }
 
-/** One object↦object correspondence row returned by ctkr.functor_between. */
+/** One candidate symbol mapping returned by ctkr.structural_alignment. */
 export interface FunctorMappingRow {
   src_symbol_id: string;
   src_qualified_name: string;
@@ -301,7 +302,7 @@ export interface FunctorMappingRow {
   pair_fidelity: number | null;
 }
 
-/** Result shape for ctkr.functor_between (§4). */
+/** Result shape for ctkr.structural_alignment (legacy functor field names). */
 export interface FunctorBetweenResult {
   /** null when the pair has no artifact row passing the filters. */
   functor: FunctorSummary | null;
@@ -374,19 +375,18 @@ export interface InterfaceOfResult {
   _note?: string;
 }
 
-/** Result shape for ctkr.composition_rules (§4.3 / §8.2, T4). A subsystem's
- *  composition algebra — its operations, laws, and protocol contract. */
+/** Result shape for ctkr.composition_patterns. Observed role-path patterns and
+ *  diagnostics, not verified laws. Legacy schema identifiers are retained. */
 export interface CompositionRulesResult {
   subsystem_id: string;
   repo: string | null;
-  /** Which role quotient the operations were projected through. */
+  /** Profile grouping; legacy "orbit" means exact-profile classes, not automorphism orbits. */
   view: "orbit" | "similarity";
   /** The recovered operations (path + fan_in), strongest/protocol first. */
   operations: OperadRow[];
-  /** Recorded law violations (op_kind="non_operadic"): the composition non-laws. */
+  /** Pattern diagnostics (legacy op_kind="non_operadic"), not proven law violations. */
   violations: OperadRow[];
-  /** Distinct role_ids appearing on the boundary (protocol) operations — the
-   *  order-of-operations contract external callers depend on. */
+  /** Distinct role_ids in boundary patterns; not a runtime ordering contract. */
   protocol_roles: string[];
   n_operations: number;
   n_boundary_ops: number;
@@ -484,7 +484,7 @@ const COMPOSITION_RULES_SCHEMA = {
   ...ACK_SCHEMA,
   subsystem: z.string().optional(),
   repo: z.string().optional(),
-  view: z.enum(["orbit", "similarity"]).optional(),
+  view: z.enum(["orbit", "similarity"]).optional().describe("Profile grouping: legacy orbit = exact-profile classes (not automorphism orbits); similarity = clustered profiles."),
   op_kind: z.enum(["path", "fan_in", "non_operadic"]).optional(),
   min_support: z.number().int().min(1).optional(),
   boundary_only: z.boolean().optional(),
@@ -1095,14 +1095,11 @@ export async function interfaceOf(input: {
 // ---------------------------------------------------------------------------
 
 /**
- * Return a subsystem's composition algebra (Phase 2d, scoped): the operations
- * recovered by projecting its actual typed call/reference paths onto role
- * classes, the composition laws they observe, and the protocol contract its
- * boundary operations impose. The scoped variant of ctkr.composition_rules —
- * ``subsystem`` restricts to one subsystem's operad (the default, most useful
- * query); omitting it returns the corpus-scoped operations under the other
- * filters. Reads operads.parquet only (recovery is the `ctkr operads` batch
- * runner).
+ * Read observed composition patterns projected onto role classes, plus diagnostics.
+ * The exported function name, artifact fields, and wire enums remain compatibility
+ * identifiers. Boundary participation does not establish runtime ordering.
+ * Scope by subsystem or query the corpus with the other filters.
+ * Reads operads.parquet produced by `ctkr composition-patterns` (alias `ctkr operads`).
  */
 export async function compositionRules(input: {
   subsystem?: string;
@@ -1122,7 +1119,8 @@ export async function compositionRules(input: {
     const manifest = await handle.manifest();
     if (!manifest.operads) {
       throw new Error(
-        `operad artifacts not found in ${dataDir} — run \`ctkr operads\` ` +
+        `composition-pattern artifacts (legacy operads) not found in ${dataDir} — ` +
+          `run \`ctkr composition-patterns\` (compatibility alias: \`ctkr operads\`) ` +
           `(Stage C §4.3) after \`ctkr roles\` (T3) to generate them`,
       );
     }
@@ -1265,7 +1263,7 @@ function stalenessNote(
     stamp !== current
   ) {
     return (
-      "functor was discovered against an older hom-profile generation " +
+      "structural alignment was discovered against an older structural-profile generation " +
       "— re-run the discovery runner"
     );
   }
@@ -1407,10 +1405,10 @@ export async function functorBetween(input: {
       const am = chosen.ambiguity_mass ?? 0;
       if (am >= 0.5) {
         notes.push(
-          `ambiguity_mass=${(am * 100).toFixed(0)}% of this functor's mappings are ` +
+          `ambiguity_mass=${(am * 100).toFixed(0)}% of this alignment's mappings are ` +
             `coin-flip ties among structural lookalikes — treat the per-symbol ` +
             `mapping as UNRELIABLE (aggregate coverage/fidelity/cycle-consistency ` +
-            `still meaningful); filter with min_margin or inspect is_ambiguous`,
+            `are diagnostics, not guarantees); filter with min_margin or inspect is_ambiguous`,
         );
       }
     } else {
@@ -1717,13 +1715,14 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
     },
   },
   {
-    name: "ctkr.role_equivalent",
+    name: "ctkr.similar_roles",
     summary:
-      "Find symbols that play the same structural role as the seed, by cosine-KNN " +
-      "over hom-profile vectors. Matches on the shape of a symbol's typed-edge " +
-      "neighbourhood, independent of name or repo conventions. Requires symbol_id " +
-      "or qualified_name; scope disambiguates a name shared across repos; " +
-      "cross_repo_only drives the Phase 2a cross-repo predicate.",
+      "Find symbols with similar structural profiles by cosine-distance KNN over typed-edge " +
+      "neighborhood vectors from hom_profiles.parquet. Similarity is not categorical or behavioral " +
+      "equivalence. Requires symbol_id or qualified_name; scope disambiguates names across repos; " +
+      "cross_repo_only excludes the seed repo. Returns up to k rows ordered by the legacy " +
+      "hom_profile_distance field. Category theory is research inspiration, not a verified " +
+      "guarantee. Compatibility alias: ctkr.role_equivalent.",
     input_schema: {
       type: "object",
       properties: {
@@ -1830,8 +1829,8 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
   {
     name: "ctkr.interface_of",
     summary:
-      "Return a subsystem's interface contract (subsystem-extraction Stage B): " +
-      "its boundary morphisms. provides = external->internal crossing edges (the " +
+      "Return a subsystem's observed interface surface (Stage B), not a complete " +
+      "behavioral contract. provides = external->internal crossing edges (the " +
       "API surface; each internal symbol is an export, edge_kind its usage mode); " +
       "consumes = internal->external crossings (the dependency surface, with the " +
       "target subsystem giving the deck's topology). Also returns the rolled-up " +
@@ -1874,22 +1873,22 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
     },
   },
   {
-    name: "ctkr.composition_rules",
+    name: "ctkr.composition_patterns",
     summary:
-      "Return a subsystem's composition algebra (subsystem-extraction Stage C / " +
-      "§4.3, Phase 2d scoped): the operations recovered by projecting its actual " +
-      "typed call/reference paths onto role classes — the composition-algebra a " +
-      "re-implementer needs (not the pieces, but how they combine). op_kind " +
-      "'path' = sequential composition (input_roles ∘ … → output_role); 'fan_in' " +
-      "= n-ary combination (a target role built from arity distinct source " +
-      "roles); 'non_operadic' = a recorded law violation (missing_composite = " +
-      "two generators compose at role level but their composite is never " +
-      "observed; back_call_cycle = an observed 2-cycle between roles). Boundary " +
-      "(protocol) ops — any role public in the T2 interface — carry the order-of-" +
-      "operations contract external callers depend on. Reads operads.parquet " +
-      "(recovery is the `ctkr operads` batch runner). Scope with subsystem " +
-      "(default; the scoped variant), repo, view ('orbit'|'similarity'), op_kind, " +
-      "min_support, boundary_only.",
+      "Return observed composition patterns by projecting typed call/reference paths onto role " +
+      "classes. path records recurring role paths; fan_in records distinct source roles sharing a " +
+      "target. The legacy non_operadic family records diagnostics: missing_composite is a " +
+      "predicted two-step role path absent from the retained support-filtered patterns " +
+      "(observations may fall below support thresholds or be truncated); back_call_cycle is " +
+      "an observed role 2-cycle. These are not " +
+      "proven composition laws, runtime ordering guarantees, or verified operads. Operad theory is " +
+      "research inspiration. Boundary flags mark interface participation, not init-before-use or " +
+      "acquire/release contracts; invariance_tier is a legacy annotation, not a preservation proof. " +
+      "Reads operads.parquet, produced by ctkr composition-patterns (legacy command: ctkr operads). " +
+      "Filter by subsystem, repo, view, op_kind, min_support, boundary_only, limit. view orbit is " +
+      "the legacy wire value for exact-profile classes, not automorphism orbits; similarity uses " +
+      "clustered profiles. Results retain operations, violations, and protocol_roles compatibility " +
+      "fields. Compatibility alias: ctkr.composition_rules.",
     input_schema: {
       type: "object",
       properties: {
@@ -1908,13 +1907,13 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
         },
         subsystem: {
           type: "string",
-          description: "subsystem_id (from ctkr.subsystems) — the scoped operad.",
+          description: "subsystem_id (from ctkr.subsystems) — scope the composition patterns.",
         },
         repo: { type: "string", description: "Restrict to one repo." },
         view: {
           type: "string",
           enum: ["orbit", "similarity"],
-          description: "Which role quotient the operations were projected through (default similarity).",
+          description: "Profile grouping (default similarity); legacy orbit means exact-profile classes, not automorphism orbits.",
         },
         op_kind: {
           type: "string",
@@ -1928,7 +1927,7 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
         },
         boundary_only: {
           type: "boolean",
-          description: "Only boundary (protocol) operations — the external contract.",
+          description: "Only patterns involving interface roles; not a runtime protocol guarantee.",
         },
         limit: { type: "integer", minimum: 1, maximum: 5000, default: 500 },
       },
@@ -1939,7 +1938,7 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
     summary:
       "Return one subsystem's fused specification card (subsystem-extraction " +
       "§8.1) from the deck — the stack-agnostic re-implementation reference that " +
-      "fuses the structural lane (partition, role classes, composition operad, " +
+      "fuses the structural lane (partition, role classes, composition patterns, " +
       "interface, data shapes, topology) with the natural-language lane (name, " +
       "intent, per-element descriptions, intent-dissonance findings). Every card " +
       "carries spec_basis_summary (the honest structural-vs-nl-only floor) and " +
@@ -1984,21 +1983,20 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
     },
   },
   {
-    name: "ctkr.functor_between",
+    name: "ctkr.structural_alignment",
     summary:
-      "Discover how two repos' designs correspond: the maximal partial " +
-      "structure-preserving map (functor) between them, with per-correspondence " +
-      "fidelity. Reads functors.parquet / functor_edges.parquet (discovery is the " +
-      "batch runner's job). direction picks the stored direction(s); min_coverage / " +
-      "min_fidelity gate the functor (min_fidelity=1.0 = strict functors only); " +
-      "min_pair_fidelity filters mapping rows; min_margin drops coin-flip-tie rows " +
-      "(margin below the floor); members_a/members_b scope the mapping to a " +
-      "subsystem member-set; exclude_identity drops trivial self-maps for " +
-      "single-repo endofunctor queries (repo_a===repo_b). The result surfaces " +
-      "ambiguity_mass + n_ambiguous: when ambiguity_mass is high (~0.9 on real " +
-      "code) the per-symbol mapping is coin-flip ties and only aggregate metrics " +
-      "are trustworthy. Results note alternatives, best-available scores, and " +
-      "hom-profile staleness.",
+      "Return approximate structural alignment between two repos from functors.parquet / " +
+      "functor_edges.parquet. This is a heuristic partial mapping, not a verified categorical " +
+      "functor or behavioral equivalence. Category theory is research inspiration. direction " +
+      "selects stored directions; min_coverage and min_fidelity filter summaries; min_pair_fidelity " +
+      "and min_margin filter mapping rows. A fidelity of 1 means all checked edges passed, not a " +
+      "functor proof; -1 means no evidence. pair_fidelity=null means no pair evidence. High " +
+      "ambiguity_mass and is_ambiguous flag unreliable per-symbol assignments; aggregate scores " +
+      "remain diagnostics, not guarantees. members_a/members_b scope rows; exclude_identity drops " +
+      "self-maps (default true for same-repo queries). limit caps rows sorted by pair fidelity then " +
+      "similarity. The legacy functor result field is null when no summary passes. Notes report " +
+      "alternatives and structural-profile staleness. Compatibility alias: ctkr.functor_between; " +
+      "legacy artifact and result field names remain unchanged.",
     input_schema: {
       type: "object",
       required: ["repo_a", "repo_b"],
@@ -2016,8 +2014,8 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
             "exactly this shape of aggregate. Set true to proceed anyway; the answer then " +
             "carries a caveat recording that you were told.",
         },
-        repo_a: { type: "string", description: "Source repo (domain C_A)." },
-        repo_b: { type: "string", description: "Target repo (codomain C_B)." },
+        repo_a: { type: "string", description: "Source repo for the approximate alignment." },
+        repo_b: { type: "string", description: "Target repo for the approximate alignment." },
         direction: {
           type: "string",
           enum: ["a_to_b", "b_to_a", "both"],
@@ -2030,7 +2028,7 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
           minimum: 0,
           maximum: 1,
           default: 0,
-          description: "1.0 returns only strict (pure) functors.",
+          description: "Minimum checked-edge fidelity. 1.0 means all checked edges passed, not a categorical functor proof.",
         },
         min_pair_fidelity: {
           type: "number",
@@ -2064,7 +2062,7 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
         exclude_identity: {
           type: "boolean",
           description:
-            "Single-repo endofunctor: drop trivial s↦s rows. Defaults true when " +
+            "Single-repo alignment: drop trivial s↦s rows. Defaults true when " +
             "repo_a === repo_b, false otherwise.",
         },
       },
@@ -2072,8 +2070,22 @@ export const CTKR_TOOL_DESCRIPTIONS: ToolDescription[] = [
   },
 ];
 
+// Public structural-analysis names and legacy compatibility identifiers share schemas.
+for (const [preferred, legacy] of [
+  ["ctkr.similar_roles", "ctkr.role_equivalent"],
+  ["ctkr.structural_alignment", "ctkr.functor_between"],
+  ["ctkr.composition_patterns", "ctkr.composition_rules"],
+] as const) {
+  const tool = CTKR_TOOL_DESCRIPTIONS.find((entry) => entry.name === preferred)!;
+  CTKR_TOOL_DESCRIPTIONS.push({
+    ...tool,
+    name: legacy,
+    summary: `Compatibility alias for ${preferred}. ${tool.summary}`,
+  });
+}
+
 /**
- * Register all ten CTKR tools on the given McpServer.
+ * Register structural-analysis tools and their compatibility aliases on the McpServer.
  * Call this from server.ts after the existing graph tool registrations.
  * Keep the registrations here in sync with CTKR_TOOL_DESCRIPTIONS above.
  */
@@ -2185,38 +2197,29 @@ export function registerCtkrTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
-    "ctkr.role_equivalent",
-    {
-      description:
-        "Find symbols that play the same structural role as the seed, by " +
-        "cosine-distance KNN over hom-profile vectors from hom_profiles.parquet. " +
-        "The 'categorically honest' same-role query: matches are based on the " +
-        "shape of a symbol's typed-edge neighbourhood, independent of its name " +
-        "or its repo's naming conventions. Requires either symbol_id (16-char hash) " +
-        "or qualified_name. scope (optional) restricts the seed lookup to a single " +
-        "repo — useful when a qualified_name appears in multiple repos. " +
-        "cross_repo_only=true excludes neighbours in the seed's repo (Phase 2a's " +
-        "cross-repo role-equivalence predicate). v1 is brute-force DuckDB cosine; " +
-        "HNSW is a future optimisation. Returns at most k rows ordered by " +
-        "hom_profile_distance ascending (closest first).",
-      inputSchema: ROLE_EQUIVALENT_SCHEMA,
-    },
-    async (args) => {
-      // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
-      // graph these artifacts derive from has no established fitness.
-      const answer = await gateCtkrAggregate("ctkr.role_equivalent", args.acknowledge_unestablished_fitness, () =>
-        roleEquivalent({
-            symbol_id: args.symbol_id,
-            qualified_name: args.qualified_name,
-            k: args.k,
-            scope: args.scope,
-            cross_repo_only: args.cross_repo_only,
-        }),
-      );
-      return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
-    },
-  );
+  for (const toolName of ["ctkr.similar_roles", "ctkr.role_equivalent"] as const) {
+    server.registerTool(
+      toolName,
+      {
+        description: CTKR_TOOL_DESCRIPTIONS.find((tool) => tool.name === toolName)!.summary,
+        inputSchema: ROLE_EQUIVALENT_SCHEMA,
+      },
+      async (args) => {
+        // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
+        // graph these artifacts derive from has no established fitness.
+        const answer = await gateCtkrAggregate(toolName, args.acknowledge_unestablished_fitness, () =>
+          roleEquivalent({
+              symbol_id: args.symbol_id,
+              qualified_name: args.qualified_name,
+              k: args.k,
+              scope: args.scope,
+              cross_repo_only: args.cross_repo_only,
+          }),
+        );
+        return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
+      },
+    );
+  }
 
   server.registerTool(
     "ctkr.centrality_query",
@@ -2281,9 +2284,8 @@ export function registerCtkrTools(server: McpServer): void {
     "ctkr.interface_of",
     {
       description:
-        "Return a subsystem's interface contract (subsystem-extraction Stage B / " +
-        "§3): the set of morphisms crossing its boundary — which is where a " +
-        "subsystem's contract actually lives, since it is written down nowhere. " +
+        "Return a subsystem's observed interface surface (Stage B / §3): " +
+        "typed edges crossing its boundary, not a complete behavioral contract. " +
         "provides = external->internal crossing edges (the API surface; each " +
         "internal symbol is an export and edge_kind is its usage mode: " +
         "REFERENCES/CALLS in = invoked, IMPLEMENTS in = extension point, " +
@@ -2318,54 +2320,31 @@ export function registerCtkrTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
-    "ctkr.composition_rules",
-    {
-      description:
-        "Return a subsystem's composition algebra (subsystem-extraction Stage C " +
-        "/ §4.3 — Phase 2d operad recovery, scoped single-repo and per-" +
-        "subsystem): the operations recovered by projecting the subsystem's " +
-        "actual typed call/reference paths onto its role classes (T3). This is " +
-        "the composition-algebra a re-implementer most needs and most lacks — " +
-        "not the pieces, but the algebra of how pieces combine. op_kind 'path' = " +
-        "sequential composition (input_roles compose to output_role; arity = " +
-        "steps); 'fan_in' = an n-ary combination (a target role produced by " +
-        "combining arity distinct source roles — the wiring-diagram reading); " +
-        "'non_operadic' = a recorded law violation (violation_kind " +
-        "'missing_composite' = two generators compose at role level but their " +
-        "predicted composite is never actually observed; 'back_call_cycle' = an " +
-        "observed 2-cycle between roles — the 'never calls back except through " +
-        "Callback' non-law). Violations are bookkept, never discarded. Boundary " +
-        "(protocol) operations — is_boundary_op, any role public in the T2 " +
-        "interface — carry the order-of-operations contract external callers " +
-        "depend on (init-before-use, acquire-then-release), the laws a port " +
-        "breaks first and silently; protocol_roles collects them. Every op is " +
-        "invariance_tier 'I' (a port must preserve it). Reads operads.parquet " +
-        "only — recovery is the `ctkr operads` batch runner. Scope with " +
-        "subsystem (subsystem_id from ctkr.subsystems — the scoped variant), " +
-        "repo, view ('orbit' = exact-profile classes | 'similarity' = working " +
-        "classes, default), op_kind, min_support, boundary_only. Results split " +
-        "operations from violations, note truncation, and flag an unknown " +
-        "subsystem.",
-      inputSchema: COMPOSITION_RULES_SCHEMA,
-    },
-    async (args) => {
-      // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
-      // graph these artifacts derive from has no established fitness.
-      const answer = await gateCtkrAggregate("ctkr.composition_rules", args.acknowledge_unestablished_fitness, () =>
-        compositionRules({
-            subsystem: args.subsystem,
-            repo: args.repo,
-            view: args.view,
-            op_kind: args.op_kind,
-            min_support: args.min_support,
-            boundary_only: args.boundary_only,
-            limit: args.limit,
-        }),
-      );
-      return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
-    },
-  );
+  for (const toolName of ["ctkr.composition_patterns", "ctkr.composition_rules"] as const) {
+    server.registerTool(
+      toolName,
+      {
+        description: CTKR_TOOL_DESCRIPTIONS.find((tool) => tool.name === toolName)!.summary,
+        inputSchema: COMPOSITION_RULES_SCHEMA,
+      },
+      async (args) => {
+        // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
+        // graph these artifacts derive from has no established fitness.
+        const answer = await gateCtkrAggregate(toolName, args.acknowledge_unestablished_fitness, () =>
+          compositionRules({
+              subsystem: args.subsystem,
+              repo: args.repo,
+              view: args.view,
+              op_kind: args.op_kind,
+              min_support: args.min_support,
+              boundary_only: args.boundary_only,
+              limit: args.limit,
+          }),
+        );
+        return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
+      },
+    );
+  }
 
   server.registerTool(
     "ctkr.subsystem_card",
@@ -2373,7 +2352,7 @@ export function registerCtkrTools(server: McpServer): void {
       description:
         "Return one subsystem's fused specification card (subsystem-extraction " +
         "§8.1): the stack-agnostic re-implementation reference fusing the " +
-        "structural lane (role classes, composition operad, interface, data " +
+        "structural lane (role classes, composition patterns, interface, data " +
         "shapes, topology) with the NL lane (name, intent, descriptions, " +
         "intent-dissonance findings). Carries spec_basis_summary (structural vs " +
         "nl-only floor) + full provenance. Reads subsystem_cards.jsonl only — " +
@@ -2399,54 +2378,34 @@ export function registerCtkrTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
-    "ctkr.functor_between",
-    {
-      description:
-        "Discover how two repos' designs correspond: the maximal partial " +
-        "structure-preserving map (functor) between them, with per-correspondence " +
-        "fidelity. Reads functors.parquet / functor_edges.parquet only — discovery " +
-        "is the batch runner's job. " +
-        "direction ('a_to_b' | 'b_to_a' | 'both') selects the stored direction; " +
-        "'both' also returns the reverse (B→A) summary. " +
-        "min_coverage / min_fidelity gate which functor is returned (min_fidelity=1.0 " +
-        "returns only strict/pure functors; a −1 no-evidence fidelity always fails a " +
-        "positive threshold). min_pair_fidelity filters the returned mapping rows " +
-        "(pair_fidelity=null means an isolated pair with no structural evidence — " +
-        "never read as 1.0). min_margin drops coin-flip-tie rows (margin below the " +
-        "floor). The result carries ambiguity_mass + n_ambiguous (MetaCoding-265): " +
-        "a high ambiguity_mass (~0.9 on real code) means the per-symbol mapping is " +
-        "near-random ties — treat it as UNRELIABLE and lean on the aggregate " +
-        "coverage/fidelity/cycle-consistency instead; per-row is_ambiguous flags " +
-        "each coin-flip. members_a/members_b restrict the returned mapping to a " +
-        "subsystem member-set (symbol_ids on the repo_a/repo_b side). exclude_identity " +
-        "drops trivial s↦s rows for single-repo endofunctor queries (default true when " +
-        "repo_a===repo_b). limit caps mapping rows (sorted pair_fidelity desc, then " +
-        "similarity desc). When no functor passes the filters the result carries " +
-        "functor:null plus a _note giving the best-available scores, unknown-repo " +
-        "listing, or a hom-profile staleness flag.",
-      inputSchema: FUNCTOR_BETWEEN_SCHEMA,
-    },
-    async (args) => {
-      // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
-      // graph these artifacts derive from has no established fitness.
-      const answer = await gateCtkrAggregate("ctkr.functor_between", args.acknowledge_unestablished_fitness, () =>
-        functorBetween({
-            repo_a: args.repo_a,
-            repo_b: args.repo_b,
-            direction: args.direction,
-            min_coverage: args.min_coverage,
-            min_fidelity: args.min_fidelity,
-            min_pair_fidelity: args.min_pair_fidelity,
-            min_margin: args.min_margin,
-            limit: args.limit,
-            members_a: args.members_a,
-            members_b: args.members_b,
-            exclude_identity: args.exclude_identity,
-        }),
-      );
-      return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
-    },
-  );
+  for (const toolName of ["ctkr.structural_alignment", "ctkr.functor_between"] as const) {
+    server.registerTool(
+      toolName,
+      {
+        description: CTKR_TOOL_DESCRIPTIONS.find((tool) => tool.name === toolName)!.summary,
+        inputSchema: FUNCTOR_BETWEEN_SCHEMA,
+      },
+      async (args) => {
+        // AGGREGATING consumer (bead MetaCoding-0mu): refuses by default when the
+        // graph these artifacts derive from has no established fitness.
+        const answer = await gateCtkrAggregate(toolName, args.acknowledge_unestablished_fitness, () =>
+          functorBetween({
+              repo_a: args.repo_a,
+              repo_b: args.repo_b,
+              direction: args.direction,
+              min_coverage: args.min_coverage,
+              min_fidelity: args.min_fidelity,
+              min_pair_fidelity: args.min_pair_fidelity,
+              min_margin: args.min_margin,
+              limit: args.limit,
+              members_a: args.members_a,
+              members_b: args.members_b,
+              exclude_identity: args.exclude_identity,
+          }),
+        );
+        return { content: [{ type: "text", text: JSON.stringify(answer, null, 2) }] };
+      },
+    );
+  }
 }
 
