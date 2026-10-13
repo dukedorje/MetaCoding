@@ -59,3 +59,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.db
 .beads-credential-key
 .claude/worktrees/
+
+# Intention scratch (conductor isolate, spawn stage, harness session)
+.worktrees/
+.spawns/
+.omx/
+groups/*/inventory.json
