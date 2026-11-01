@@ -22,7 +22,8 @@
 // indexed root). Symbol ids include repo so cross-repo names don't clash.
 //
 // Multi-language dispatch: `.ts` / `.tsx` -> TypeScript extractor;
-// `.py` -> Python extractor; `.php` -> PHP extractor.
+// `.js` / `.mjs` / `.cjs` -> JavaScript; `.py` -> Python; `.php` -> PHP;
+// `.rs` -> Rust; `.kt` / `.kts` -> Kotlin; `.swift` -> Swift.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
@@ -40,6 +41,7 @@ import { loadLanguage, makeParser, type TsParser } from "./parser";
 import { extractTypeScript, type ExtractOpts as TsExtractOpts } from "./typescript";
 import { extractPython, type ExtractPyOpts } from "./python";
 import { extractPhp, type ExtractPhpOpts } from "./php";
+import { extractStructural, type ExtractStructuralOpts } from "./structural";
 import { assertMayIngest, type IngestTicket } from "../ingest/ticket.ts";
 import { toolchainDigest } from "../toolchain/identity.ts";
 
@@ -53,7 +55,16 @@ import { toolchainDigest } from "../toolchain/identity.ts";
  * a new grammar cannot typecheck without joining the list, and the list is what
  * src/toolchain/preflight.test.ts checks the lock against.
  */
-export const GRAMMARS = ["typescript", "tsx", "python", "php"] as const;
+export const GRAMMARS = [
+  "typescript",
+  "tsx",
+  "javascript",
+  "python",
+  "php",
+  "rust",
+  "kotlin",
+  "swift",
+] as const;
 type Grammar = (typeof GRAMMARS)[number];
 
 export interface WalkOpts {
@@ -150,12 +161,7 @@ interface ScannedFile {
   grammar: Grammar;
 }
 
-interface ParserCache {
-  typescript: TsParser;
-  tsx: TsParser;
-  python: TsParser;
-  php: TsParser;
-}
+type ParserCache = Record<Grammar, TsParser>;
 
 let cachedParsers: ParserCache | null = null;
 /**
@@ -180,12 +186,9 @@ async function getParsers(): Promise<ParserCache> {
     for (const g of GRAMMARS) await loadLanguage(g);
     return cachedParsers;
   }
-  cachedParsers = {
-    typescript: await makeParser("typescript"),
-    tsx: await makeParser("tsx"),
-    python: await makeParser("python"),
-    php: await makeParser("php"),
-  };
+  const built = {} as ParserCache;
+  for (const g of GRAMMARS) built[g] = await makeParser(g);
+  cachedParsers = built;
   return cachedParsers;
 }
 
@@ -379,11 +382,16 @@ async function indexOne(
       filePath: f.rel, branch, repo, repo_commit_sha, indexed_at, perCommitIdentity,
     };
     result = extractPhp(tree, eo);
-  } else {
+  } else if (f.grammar === "typescript" || f.grammar === "tsx") {
     const eo: TsExtractOpts = {
       filePath: f.rel, grammar: f.grammar, branch, repo, repo_commit_sha, indexed_at, perCommitIdentity,
     };
     result = extractTypeScript(tree, eo);
+  } else {
+    const eo: ExtractStructuralOpts = {
+      filePath: f.rel, grammar: f.grammar, branch, repo, repo_commit_sha, indexed_at, perCommitIdentity,
+    };
+    result = extractStructural(tree, eo);
   }
 
   // Stamp the file Symbol's ast_hash with the content hash so the next
@@ -403,13 +411,15 @@ async function indexOne(
   //
   if (resolver && pendingCandidates) {
     for (const sym of result.symbols) resolver.add(sym);
-    const edgeLang = f.grammar === "python" ? "py" : f.grammar === "php" ? "php" : "ts";
-    const er = extractEdgeCandidates(tree, {
-      language: edgeLang,
-      filePath: f.rel,
-      symbols: result.symbols,
-    });
-    for (const c of er.candidates) pendingCandidates.push(c);
+    const edgeLang = f.grammar === "python" ? "py" : f.grammar === "php" ? "php" : f.grammar === "typescript" || f.grammar === "tsx" ? "ts" : null;
+    if (edgeLang) {
+      const er = extractEdgeCandidates(tree, {
+        language: edgeLang,
+        filePath: f.rel,
+        symbols: result.symbols,
+      });
+      for (const c of er.candidates) pendingCandidates.push(c);
+    }
   }
 
   tree.delete();
@@ -600,8 +610,13 @@ function walkFs(
 export function detectGrammar(filename: string): Grammar | null {
   if (filename.endsWith(".d.ts")) return null;
   if (filename.endsWith(".tsx")) return "tsx";
+  if (filename.endsWith(".mts") || filename.endsWith(".cts")) return "typescript";
   if (filename.endsWith(".ts")) return "typescript";
+  if (filename.endsWith(".mjs") || filename.endsWith(".cjs") || filename.endsWith(".js")) return "javascript";
   if (filename.endsWith(".py")) return "python";
+  if (filename.endsWith(".rs")) return "rust";
+  if (filename.endsWith(".kt") || filename.endsWith(".kts")) return "kotlin";
+  if (filename.endsWith(".swift")) return "swift";
   // PHP, plus the extensionless-`<?php` file types Drupal uses (farmOS and
   // other Drupal codebases put real PHP in .module/.install/.theme/etc.).
   if (

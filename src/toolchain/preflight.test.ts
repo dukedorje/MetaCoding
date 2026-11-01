@@ -275,7 +275,8 @@ describe("the lock must COVER what the process actually loaded", () => {
     const probes = [
       "a.ts", "a.tsx", "a.py", "a.php", "a.phtml", "a.inc",
       "a.module", "a.install", "a.theme", "a.profile", "a.engine",
-      "a.d.ts", "a.go", "a.rs", "README.md",
+      "a.js", "a.mjs", "a.cjs", "a.rs", "a.kt", "a.kts", "a.swift",
+      "a.d.ts", "a.go", "README.md",
     ];
     const reachable = new Set<string>();
     for (const p of probes) {
@@ -294,6 +295,7 @@ describe("the lock must COVER what the process actually loaded", () => {
     expect([...reachable].sort()).toEqual([...GRAMMARS].sort());
     // and the probe set is not vacuous: some of it must NOT match.
     expect(detectGrammar("a.go")).toBeNull();
+    expect(detectGrammar("a.rs")).toBe("rust");
     expect(detectGrammar("a.d.ts")).toBeNull();
   });
 });
@@ -407,7 +409,7 @@ describe("the live check — this is what puts the mechanism on `bun test`", () 
     expect(r.counts.DRIFT).toBe(0);
     expect(r.counts.MISSING).toBe(0);
     // Every grammar the walker loads is declared AND matching.
-    for (const g of ["typescript", "tsx", "python", "php"]) {
+    for (const g of ["typescript", "tsx", "javascript", "python", "php", "rust", "kotlin", "swift"]) {
       const lane = r.lanes.find((l) => l.lane === `tree-sitter:${g}`);
       expect(lane?.outcome).toBe("OK");
     }

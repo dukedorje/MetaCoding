@@ -38,15 +38,35 @@
       "source": "web-tree-sitter",
       "digest": "sha256:6134968726179766a0ce4206cbf3a2a5fe27cac6a4109fe9387ed17e93466c92"
     },
+    "tree-sitter:javascript": {
+      "kind": "file",
+      "source": "node_modules/tree-sitter-wasms/out/tree-sitter-javascript.wasm",
+      "digest": "sha256:63812b9e275d26851264734868d27a1656bd44a2ef6eb3e85e6b03728c595ab5"
+    },
+    "tree-sitter:kotlin": {
+      "kind": "file",
+      "source": "node_modules/tree-sitter-wasms/out/tree-sitter-kotlin.wasm",
+      "digest": "sha256:b5cb00c8d06ed0f10f1dbe497205b437809d7e87db1f638721a8cfb30e044449"
+    },
     "tree-sitter:php": {
       "kind": "file",
       "source": "node_modules/tree-sitter-wasms/out/tree-sitter-php.wasm",
       "digest": "sha256:55bb617b6f01e14bab997861f0b20a2420cf6ba3199ffeb295b9ec398966d8a3"
     },
+    "tree-sitter:rust": {
+      "kind": "file",
+      "source": "node_modules/tree-sitter-wasms/out/tree-sitter-rust.wasm",
+      "digest": "sha256:4409921a70d0aa5bec7d1d7ce809a557a8ee1cf6ace901e3ac6a76e62cfea903"
+    },
     "tree-sitter:python": {
       "kind": "file",
       "source": "node_modules/tree-sitter-wasms/out/tree-sitter-python.wasm",
       "digest": "sha256:9056d0fb0c337810d019fae350e8167786119da98f0f282aceae7ab89ee8253b"
+    },
+    "tree-sitter:swift": {
+      "kind": "file",
+      "source": "node_modules/tree-sitter-wasms/out/tree-sitter-swift.wasm",
+      "digest": "sha256:41c4fdb2249a3aa6d87eed0d383081ff09725c2248b4977043a43825980ffcc7"
     },
     "tree-sitter:tsx": {
       "kind": "file",
