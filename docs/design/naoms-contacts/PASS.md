@@ -115,6 +115,12 @@ Boundary shapes are not filled. Same-file writes are rate-limit counters and sta
 
 ## 7. Room packet
 
-Not issued. A room packet needs scenarios whose bodies were read and invariants marked keep with a quotation. What is ready to read next, in order: the handshake theme (70 files), then friendship (31), then keys (18). The trust-computation invariants wait until a test body names them.
+Not issued. The handshake theme has been read far enough to separate three piles. The reading is [`HANDSHAKE.md`](./HANDSHAKE.md).
+
+- Staple and `trusted_keys` tests witness TypeScript behavior the spec already placed outside this module (section 7 item 16).
+- Invite-nonce refusals (`INVITE_REVOKED`, `INVITE_ALREADY_USED`, `INVITE_EXPIRED`, `INVITE_UNKNOWN`) are witnessed and are not `INV-mod-contacts-013` or `-015`.
+- The Personal card as relationship default is witnessed and is not in the spec.
+
+No invariant is marked keep. Friendship (36 files) is the next theme. The trust-computation invariants stay unmatched until a test body names them.
 
 `mod-contacts.md` stays as it is.
