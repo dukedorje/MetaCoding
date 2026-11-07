@@ -191,3 +191,7 @@ Contacts stays the first island. It is closed under calls, it has a Rust crate a
 ### Still owed before the room
 
 Same-file effect rows for contacts, a scenario list taken from the 321 test names (not from the 302 spec markers), and a keep/drop of `mod-contacts.md` against those tests. The index health row wants a human decision: finalize the abandoned `RUNNING` record, or leave it so the MCP gate keeps refusing unmarked aggregates. This pass did not touch it. Pulling `naoms` forward 2003 commits invalidates this graph; do that only when a re-index is the work.
+
+## Contacts desk pass
+
+The contacts dossier is [`naoms-contacts/PASS.md`](./naoms-contacts/PASS.md), with the frozen file list, call pairs, scenario themes, and invariant dispositions beside it. The room packet was not issued. Eight invariants have an underscored identifier that appears in a test name. Nothing is marked keep or drop. The handshake theme (73 files) is the next body to read.

@@ -1,0 +1,1415 @@
+[
+  {
+    "id": "INV-mod-contacts-001",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "No recovery word, password, seed, private key, signing secret, API key, handshake ephemeral key or derived handshake secret appears in any request, response, appended payload, graph node or refusal of this module (the ceremony keeps its sec"
+  },
+  {
+    "id": "INV-mod-contacts-002",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The module re-implements nothing of the core: it verifies no invite, relationship credential, membership, role or approval itself (every credential it reads goes through `credential::verify`), and declares no identity-critical kind and no k"
+  },
+  {
+    "id": "INV-mod-contacts-003",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every fact that grants or withdraws access is written only by the person's own devices: the trust level is the personal-chain credential `perm:trust_trusted` (INV-mod-contacts-138, branch `credentials`, `AllOwnerDevices`), and block, archiv"
+  },
+  {
+    "id": "INV-mod-contacts-004",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "An operation that needs a door while the layer is not usable is refused `LayerLocked` before any append and calls no door; nothing is half-written."
+  },
+  {
+    "id": "INV-mod-contacts-005",
+    "disposition": "name-hit",
+    "tokens": [
+      "contact_create"
+    ],
+    "tests": [
+      "tests/uc-contact-create-ws-surface-failure-mode.test.ts",
+      "tests/uc-contact-create-ws-surface-success.test.ts"
+    ],
+    "n": 2,
+    "head": "`contact_create` with an unused id appends one `contact.created` and makes a person of relation `Contact`; with a used id and equal fields it answers ok with `created` false and appends nothing; with a used id and other fields it is refused"
+  },
+  {
+    "id": "INV-mod-contacts-006",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "validate_contact"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "Every entry field is checked by `validate_contact` and a fault is refused by name as `Contact`; nothing is clamped; the name kept is the trimmed one."
+  },
+  {
+    "id": "INV-mod-contacts-007",
+    "disposition": "name-hit",
+    "tokens": [
+      "normalise_address"
+    ],
+    "tests": [
+      "tests/uc-normalise-address-failure-mode.test.ts",
+      "tests/uc-normalise-address-success.test.ts"
+    ],
+    "n": 2,
+    "head": "`normalise_address` lower-cases both parts, strips no plus tag and no dot, and refuses a non-bare form and a numeric domain by name instead of reinterpreting them."
+  },
+  {
+    "id": "INV-mod-contacts-008",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "list_contacts"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`list_contacts` never lists the person's own row, lists an archived row only on request, lists only friends and contacts unless a relation is named, splits `friends` from `connections` by relation and standing, matches a query by ASCII-fold"
+  },
+  {
+    "id": "INV-mod-contacts-009",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "CONTACT_PAGE_MAX",
+      "CONTACT_PAGE_DEFAULT"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "Every list answers from the local graph in a page of at most `CONTACT_PAGE_MAX` (default `CONTACT_PAGE_DEFAULT`) with the true total counted before slicing, works with no peer reachable, and refuses a larger limit as `PageTooLarge`."
+  },
+  {
+    "id": "INV-mod-contacts-010",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "One human is one `person` node: a did names at most one (`DuplicateDid` names the entry that holds it, `SelfEntry` refuses the owner's own did), and the node key (the `person_id` of a result) is the did when there is one, else the entry id,"
+  },
+  {
+    "id": "INV-mod-contacts-011",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Archive and unarchive are reversible, owner-only, hide a person from the default list and change nothing else (relation, standing, level, chain); a peer's commit cannot archive."
+  },
+  {
+    "id": "INV-mod-contacts-012",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "bad_transition"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A person's relation is the fold of rule P-1 over the owner's `person.kind_updated` commits, taken by the views and not by a reducer: a commit that is not a row of the table is not applied and is counted as `bad_transition`, the same pair is"
+  },
+  {
+    "id": "INV-mod-contacts-013",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_invite",
+      "backup_gate"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection_invite` is owner-only, runs its checks in the order of rule K-1 (usable layer, `backup_gate`, time to live, name), asks the door once, then appends `connection.invite_minted`; a refused check mints and writes nothing; the invite"
+  },
+  {
+    "id": "INV-mod-contacts-014",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_invites"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection_invites` lists every invite the person minted with its state, `used` before `expired` before `live`, and never lists the invite text again."
+  },
+  {
+    "id": "INV-mod-contacts-015",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_redeem"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection_redeem` runs its checks in the order of rule K-2 and every refusal before the door call leaves the invite unconsumed: a `Hive` invite is `WrongInviteKind`, the owner's own invite `SelfConnect`, a blocked inviter `ContactBlocked`"
+  },
+  {
+    "id": "INV-mod-contacts-016",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "PENDING_REQUESTS_MAX",
+      "connection_respond"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A pending request is only what the door lists; the list shows at most `PENDING_REQUESTS_MAX` rows oldest first with the true `total` and the `hidden` count of blocked requesters; `connection_respond` calls the door once with the answer; an "
+  },
+  {
+    "id": "INV-mod-contacts-017",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "awaiting_approval",
+      "accept_invite",
+      "awaiting_chain",
+      "FRIEND_ACCEPT_PENDING_TEXT"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "An unnamed invite redeemed waits (`awaiting_approval`) until the inviter answers; a named invite needs no answer of the inviter (INV-ceremony-035) but is not connected until the maker's `accept_invite` succeeds: until then the INVITEE side "
+  },
+  {
+    "id": "INV-mod-contacts-018",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A finished connection becomes a friend exactly once: step A of the sync writes the person (the existing node for that did), `person.kind_updated` to `Friend` with the friendship chain, the chosen card if any, and only then acknowledges the "
+  },
+  {
+    "id": "INV-mod-contacts-019",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "PEER_CARD_MAX_BYTES"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A presented card is stored under its author's record only within `PEER_CARD_MAX_BYTES`, and is shown only after `CardDoor::check` accepted it for this chain and this audience at the read: a card without a holder proof or bound elsewhere has"
+  },
+  {
+    "id": "INV-mod-contacts-020",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_show",
+      "key_revoked"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The verdict of a presented card is recomputed from `PeerKeys::current_keys` every time `contact_show` runs and is never read from storage; a key that is no longer current gives `key_revoked`, a failing key read gives `unknown`, a card that "
+  },
+  {
+    "id": "INV-mod-contacts-021",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Each key event of a peer or hive member is one pending notice until the person acknowledges it by its commit id; acknowledging one clears only that one, on every device, and only the owner can."
+  },
+  {
+    "id": "INV-mod-contacts-022",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_end"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection_end` runs the checks of rule K-7 in order, asks the door to end the relationship before it writes, then appends `connection.ended` once and sets the relation to `Contact`; a `connection.ended` authored by the peer gives `Removed"
+  },
+  {
+    "id": "INV-mod-contacts-023",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Blocking keeps the connection and its keys, sets only the standing the gate reads, is owner-only and reversible by unblocking while the relationship has not ended."
+  },
+  {
+    "id": "INV-mod-contacts-024",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_standing"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`contact_standing` is `Removed` when the person's current friendship chain holds a `connection.ended` of either party, else `Blocked` when the latest block event is a block, else `Active`; a standing derived from the graph is used only to r"
+  },
+  {
+    "id": "INV-mod-contacts-025",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_set_trust"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The trust level of a relationship is changed only by `contact_set_trust`, in either direction, by the owner; no peer commit, message, elapsed time, count or argument claim changes it, and a person with no decision is `Known` while the conne"
+  },
+  {
+    "id": "INV-mod-contacts-026",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every `ContactBook` read that fails answers a `ViewFault`; none answers a default (`Unknown`, `Active`, false) in its place."
+  },
+  {
+    "id": "INV-mod-contacts-027",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "add_to_channel",
+      "social_search",
+      "permission_to",
+      "permission_from"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A permission is `add_to_channel`, `call` or `social_search` with a boolean value, is granted only by the grantor's own commit (the reducer keys the grantor on the commit's author), and no commit means not granted; `permission_to` reads the "
+  },
+  {
+    "id": "INV-mod-contacts-028",
+    "disposition": "name-hit",
+    "tokens": [
+      "contact_link"
+    ],
+    "tests": [
+      "tests/uc-contact-linked-typed-edges.test.ts"
+    ],
+    "n": 1,
+    "head": "`contact_link` accepts only the seven forward verbs between two existing, different persons, names a reserved or a derived verb in its refusal, stamps the edge with origin `owner`, and writes the twin of a symmetric verb and the child verb "
+  },
+  {
+    "id": "INV-mod-contacts-029",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_dids",
+      "resolve_name"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`contact_dids` is the set of dids of persons of relation `Friend` or `Contact` with standing `Active`, and is what `resolve_name` receives as the person's contacts."
+  },
+  {
+    "id": "INV-mod-contacts-030",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_query",
+      "CONTACT_QUERIES_PER_ANSWER"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`contact_query` only reads; it filters by relation, hive and last-seen window, groups by one key, and after `CONTACT_QUERIES_PER_ANSWER` looks with one `answer_id` the next is `QueryBudget`; the table of counts is bounded."
+  },
+  {
+    "id": "INV-mod-contacts-031",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_show"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`contact_show` answers the person's data, the freshly computed card verdict, both directions of permission, the pending notice count and `last_seen`, which is read from the latest `seen` edge and has no place when that edge has none."
+  },
+  {
+    "id": "INV-mod-contacts-032",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "CONTRACT_HOP_LIMIT_DEFAULT",
+      "allow_modification",
+      "connection_contract_set",
+      "CONTRACT_HOP_LIMIT_MAX"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A friendship's contract starts with hop limit `CONTRACT_HOP_LIMIT_DEFAULT`, no reshare, an empty `fields` list and `on_revoke` `delete`, the same default as `mod-fleet` INV-mod-fleet-160 (whose further term `allow_modification` false is `mo"
+  },
+  {
+    "id": "INV-mod-contacts-033",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "mentioned_by",
+      "PEER_FOF_MAX"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A `person.introduced` is made a person of relation `Fof` with its `mentioned_by` edge by the view only if its author is admitted, the hop count is within the limit of the author's own contract, every field passed is in that contract's `fiel"
+  },
+  {
+    "id": "INV-mod-contacts-034",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "ended_view"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "When the introducer's contract ends (its `connection.ended` or hop limit 0) the view stops admitting the people it authorised; a person with no live authorisation left is not returned by queries, or is returned as `ended_view` says for the "
+  },
+  {
+    "id": "INV-mod-contacts-035",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "INTRO_MESSAGE_MAX_BYTES"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "An introduction request needs a friend as `via`, a target different from the requester and from `via` and a message within `INTRO_MESSAGE_MAX_BYTES` (each other case is `Malformed`); it is a chain commit, not a bare graph write; only the an"
+  },
+  {
+    "id": "INV-mod-contacts-036",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every reducer of this module is total over the commits it can be given: a commit that fails the shape of its kind, carries a version other than 1, or is not the module's to record returns an empty delta, never a `ReduceError`, a fault or a "
+  },
+  {
+    "id": "INV-mod-contacts-037",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "WITHDRAWN (credential redesign): a trust edge is a credential, not an offer and an acceptance; see INV-mod-contacts-136."
+  },
+  {
+    "id": "INV-mod-contacts-038",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "compute_trust"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`compute_trust` follows rule T-2: hop `mul_micro(mul_micro(weight, decay), penalty)`, simple paths of at most `max_hops` edges cut below `min_path`, a terminal edge ends but never relays a path, a different context skips an edge, paths orde"
+  },
+  {
+    "id": "INV-mod-contacts-039",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "dunbar_agent"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "An edge counts only when not revoked and `valid_from <= now < valid_until`, after each source keeps its first `dunbar` edges by (`created`, id) (`dunbar_agent` for a source listed in `agents`); more than `visit_max` expansions is `TrustTrun"
+  },
+  {
+    "id": "INV-mod-contacts-040",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "shared_hives",
+      "floor_applied"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The hive floor is a maximum over the aggregate, never an edge or a term, is below the gate (`TrustConfig::new` refuses otherwise), is disclosed (`shared_hives`, `floor_applied`), and a shared hive alone never admits."
+  },
+  {
+    "id": "INV-mod-contacts-041",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "compute_trust_bidirectional"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`compute_trust_bidirectional` is symmetric in its two parties for every combinator, defaults to `Max`, and names the contributing direction."
+  },
+  {
+    "id": "INV-mod-contacts-042",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "hop_distance",
+      "compute_trust"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`hop_distance` is 0 for the same node, the shortest count of edges with every edge but the last transitive, within `max_hops`, else -1, over the same Dunbar-capped edge set as `compute_trust`, and a node relays when any transitive path reac"
+  },
+  {
+    "id": "INV-mod-contacts-043",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "trust_horizon"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`trust_horizon` lists every reached node once with the best single-path trust and its edge count, filtered by `min_trust`, ordered by trust then identifier, and a stronger later path to a node improves the nodes behind it."
+  },
+  {
+    "id": "INV-mod-contacts-044",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "valid_until",
+      "seed_trust_view"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A revoked edge never counts again and an expired edge stops counting at its `valid_until` (rule T-2); who may end the credential an edge derives from is mod-identity's (the issuer revokes, the holder relinquishes, INV-mod-identity-114), so "
+  },
+  {
+    "id": "INV-mod-contacts-045",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "ATTACHMENT_MAX_BYTES"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "Only an endpoint of an edge can attach evidence to it; the type is closed, the blob reference is a hash whose stored length equals the declared size and is within `ATTACHMENT_MAX_BYTES`; the module writes no file."
+  },
+  {
+    "id": "INV-mod-contacts-046",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "trust_gate_admits"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The module uses computed trust only to answer; it never allows, refuses, shares or grants anything because of it, and `trust_gate_admits` is a constant comparison for consumers."
+  },
+  {
+    "id": "INV-mod-contacts-047",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "source_reputation"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`source_reputation` is computed from signals at query time and never stored, follows rule S-1 and is the same for any order of the input signals."
+  },
+  {
+    "id": "INV-mod-contacts-048",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "REPUTATION_CONFIDENCE_PER_SIGNAL_MICRO",
+      "REPUTATION_LOW_CONFIDENCE_MICRO"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`confidence` is `REPUTATION_CONFIDENCE_PER_SIGNAL_MICRO` per signal up to `MICRO`; `effective` is neutral (`MICRO`) while confidence is below `REPUTATION_LOW_CONFIDENCE_MICRO` and the reputation otherwise; the reputation with no signal is 5"
+  },
+  {
+    "id": "INV-mod-contacts-049",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "apply_defences"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`apply_defences` runs its five stages in the order of rule S-2 and reports the flags raised in that order; a signal dated after now is dropped before any other stage."
+  },
+  {
+    "id": "INV-mod-contacts-050",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "trust_signal"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`trust_signal` refuses a weight outside 0 to `MICRO`, an unknown type, a severity outside 0 to `MICRO`; the sign follows the type; the layer follows the chain; the signaler is the commit's author."
+  },
+  {
+    "id": "INV-mod-contacts-051",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every kind carries `v` equal to 1: another version is `Malformed` at an operation and an empty delta at a reducer, never a fault; every branch the module uses is declared personal data with erasure `Allowed`; the module has no operation tha"
+  },
+  {
+    "id": "INV-mod-contacts-052",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every refusal is a `ContactsRefusal` whose `to_text` is a non-empty sentence in plain words with no did, hash or code, and an operation never ends without a result or a refusal."
+  },
+  {
+    "id": "INV-mod-contacts-053",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Every operation works the same on the phone placement and the desktop placement and none is refused for the device it runs on."
+  },
+  {
+    "id": "INV-mod-contacts-054",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The message verbs, the low-level state writes and the test-contact seed are not operations of this module; calling one is `UnknownOperation` of the envelope."
+  },
+  {
+    "id": "INV-mod-contacts-055",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_invite"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "Every operation declares the risk class of section 2.1; the sensitive ones need the owner's approval by auth's policy, reads are `ReadOnly`, and `connection_invite` needs none."
+  },
+  {
+    "id": "INV-mod-contacts-056",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A commit authored by a peer can never change MY trust level, archive state, block state or petname of a contact: the kinds `contact.trust_set`, `contact.archived`, `contact.unarchived`, `contact.blocked`, `contact.unblocked`, `contact.updat"
+  },
+  {
+    "id": "INV-mod-contacts-057",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The block of a contact cannot be forged, lifted or hidden by the blocked party: the standing `Blocked` is derived from commits of the person's own devices alone, no commit of the blocked peer (an unblock, an end, a card, a permission, a con"
+  },
+  {
+    "id": "INV-mod-contacts-058",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The erasure of a contact applies whole or not at all as INV-mod-contacts-066 states: the person and every record keyed by that person are withheld by one commit and erased by chunks that are each whole or not at all, so neither a contact wi"
+  },
+  {
+    "id": "INV-mod-contacts-059",
+    "disposition": "name-hit",
+    "tokens": [
+      "CONTACTS_MAX",
+      "contact_create",
+      "LIVE_INVITES_MAX",
+      "connection_invite",
+      "connection_pending"
+    ],
+    "tests": [
+      "tests/uc-contact-create-ws-surface-failure-mode.test.ts",
+      "tests/uc-contact-create-ws-surface-success.test.ts"
+    ],
+    "n": 2,
+    "head": "The state the person's own calls grow is bounded and refuses by name: at most `CONTACTS_MAX` persons of relation `Contact` or `Friend` made by `contact_create` (`ContactsFull`, before any append; a completed connection is exempt), at most `"
+  },
+  {
+    "id": "INV-mod-contacts-060",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "PEER_FOF_MAX",
+      "PEER_OPEN_OFFERS_MAX",
+      "PEER_INTRO_REQUESTS_MAX",
+      "PEER_SIGNALS_MAX",
+      "PEER_ATTACHMENTS_MAX"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The state a peer's commits can add is a counted projection of the views and over the bound is counted, never a stall: of one friend, at most `PEER_FOF_MAX` introduced persons, `PEER_OPEN_OFFERS_MAX` open trust offers, `PEER_INTRO_REQUESTS_M"
+  },
+  {
+    "id": "INV-mod-contacts-061",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "Reducers record, views decide: every reducer of the module is a pure function of the verified commit and its author facts, reads no graph state, writes the commit's own record under a key that holds the author for a friendship-chain kind, a"
+  },
+  {
+    "id": "INV-mod-contacts-062",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "PEER_CARD_MAX_BYTES",
+      "PEER_TEXT_MAX_BYTES",
+      "CONTRACT_FIELDS_MAX",
+      "CONTRACT_FIELD_NAME_MAX_BYTES",
+      "SIGNAL_SOURCE_MAX_BYTES",
+      "SIGNAL_ARTICLE_MAX_BYTES"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "What a hostile friend can grow is bounded in three ways and each over-bound case is an AT: by shape (the card at most `PEER_CARD_MAX_BYTES`, a short text at most `PEER_TEXT_MAX_BYTES`, the contract at most `CONTRACT_FIELDS_MAX` fields of `C"
+  },
+  {
+    "id": "INV-mod-contacts-063",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "apply_defences",
+      "PEER_SIGNALS_MAX",
+      "floor_time"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The signals that reach `apply_defences` are the admitted ones: the signaler is a friend admitted by rule B-1, one signal per signaler and source (the latest by the signaler's own sequence), at most `PEER_SIGNALS_MAX` per friendship chain, a"
+  },
+  {
+    "id": "INV-mod-contacts-064",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "not_active"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A blocked or removed peer loses every write path: while the standing of a peer is `Blocked` or `Removed` none of its records except its own `connection.ended` is read by the book, an operation, the sync or the trust view (they are counted a"
+  },
+  {
+    "id": "INV-mod-contacts-065",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "end_relationship"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A peer-ended relationship revokes the layer secrets: when the current friendship chain holds a `connection.ended` of the peer, the standing is `Removed` at the next read and the next `connection.sync` calls the door's `end_relationship` and"
+  },
+  {
+    "id": "INV-mod-contacts-066",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_erase",
+      "MAX_ERASE_TARGETS"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`contact_erase` is the production erasure of a contact and applies whole or not at all as rule E-1 orders it: the door ends the relationship first (idempotent), then one `contact.erase_requested` commit withholds the person and every record"
+  },
+  {
+    "id": "INV-mod-contacts-067",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A text a peer supplied (a requester's name, a card name, an introduction field, an edge narrative, a signal article) is bounded at its reducer or door (void over the bound, never cut), is never copied into a field of the owner's own record "
+  },
+  {
+    "id": "INV-mod-contacts-068",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_redeem",
+      "connection_respond",
+      "card_saved"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The card exchange runs through `CardDoor` and one chosen card per peer: `connection_redeem` and `connection_respond` append `connection.card_chosen` (the `rcard_id`) after the door accepted, a failed append does not undo the connection and "
+  },
+  {
+    "id": "INV-mod-contacts-069",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "trust_propagate",
+      "trust_hop_distance",
+      "trust_horizon"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The owner's trust graph is built only from live edges of friendship chains and so is a star around the owner; `trust_propagate`, `trust_hop_distance` and `trust_horizon` answer over it and never present a multi-hop answer the graph cannot s"
+  },
+  {
+    "id": "INV-mod-contacts-070",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A peer's commit of a kind this module declares has exactly three outcomes in the rig and in production: refused before storage (`rejected`, the chain's `Reject`), recorded (`reduced`) or void (`empty`: verified, and the reducer returned an "
+  },
+  {
+    "id": "INV-mod-contacts-071",
+    "disposition": "name-hit",
+    "tokens": [
+      "is_contact",
+      "did_of_key",
+      "is_blocked",
+      "person_facts",
+      "identity_kind",
+      "account_owner"
+    ],
+    "tests": [
+      "tests/uc-typed-person-relations.test.ts"
+    ],
+    "n": 1,
+    "head": "The read API of the other modules is `ContactBook` and nothing else: it answers `is_contact`, `did_of_key` (the one active contact holding the key, none for no holder and none for two), `is_inner`, `is_blocked`, `person_facts` (`identity_ki"
+  },
+  {
+    "id": "INV-mod-contacts-072",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contract_to",
+      "contract_from"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The friendship contract has this module as its one owner: its terms are the four of `ContractTerms` in the record of `connection.contract_set` of each party, `contract_to` and `contract_from` read them (the default terms when there is no re"
+  },
+  {
+    "id": "INV-mod-contacts-073",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_invite",
+      "inspect_invite"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection_invite` asks `ConnectionDoors::invite_readiness` after the name check and before the door mints: a transport that is not ready is `TransportNotReady` and a missing profile is `ProfileMissing`, nothing minted or written; `inspect"
+  },
+  {
+    "id": "INV-mod-contacts-074",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "DECLINE_COOLDOWN_MS"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "Connect has one owner and no cold request: no kind, operation, node or door of the connect flow is declared outside this module, a connection request exists only on an invite the person minted and ends with the invite, a decline writes `con"
+  },
+  {
+    "id": "INV-mod-contacts-075",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_hive_announce",
+      "HIVE_CARD_MAX_BYTES",
+      "announced_hive_cards",
+      "PEER_HIVE_CARDS_MAX"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A friend's hive announcement is a counted claim: `connection_hive_announce` writes a card of 1 to `HIVE_CARD_MAX_BYTES` bytes for a hive the person is a member of, a peer's card over the bound or with a control character is void, `announced"
+  },
+  {
+    "id": "INV-mod-contacts-076",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "PENDING_REQUESTS_MAX",
+      "connection_request"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`ContactsModule::request_rows` supplies the waiting connection requests as rows (id, the requester's own name, word print, time, expiry), oldest first, at most `PENDING_REQUESTS_MAX`, without a request of a blocked requester and without an "
+  },
+  {
+    "id": "INV-mod-contacts-077",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The `last_seen` of a person is the latest `seen` edge whose time is not after the read clock and whose encounter is not cancelled; a future or cancelled edge is skipped; the module itself writes no `seen` edge."
+  },
+  {
+    "id": "INV-mod-contacts-078",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_standing",
+      "is_blocked"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A block is a node `contact_standing` keyed by the person with the members `on`, `by` and `seq`, `is_blocked` is the latest `on` in the order of rule P-1, it holds whatever the relation or the ended state, and a peer's commit never writes or"
+  },
+  {
+    "id": "INV-mod-contacts-079",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contact_set_inner"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The inner circle is the person's own mark: `contact_set_inner` is `Sensitive`, writes `contact.inner_set` on branch `contacts` for a friend only (`NotAFriend` otherwise), `is_inner` is true only for a `Friend` of standing `Active` whose lat"
+  },
+  {
+    "id": "INV-mod-contacts-080",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "can_reshare",
+      "introduce_consent"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`person.introduce` is refused `ConsentMissing`, before any door call and any append, unless the introduced person's own terms allow the pass: `can_reshare` true, the hops already made plus one within its `hop_limit` and every field passed i"
+  },
+  {
+    "id": "INV-mod-contacts-081",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "consent_unproven",
+      "hops_remaining"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The view admits a `person.introduced` only if its `consent` is a signed hop chain that `ConsentDoor::check` answers `Valid` for this author, person and chain, with `depth` equal to `hops` plus one inside `hop_limit` and the fields inside th"
+  },
+  {
+    "id": "INV-mod-contacts-082",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "retain_metadata",
+      "retain_all",
+      "ended_view"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The on-revoke term of the friendship contract is `on_revoke`, the one ordered `Retention` (`delete`, `retain_metadata`, `retain_all`, tightest first); after an introducer's contract ends `ended_view` leaves no row, a row without fields and "
+  },
+  {
+    "id": "INV-mod-contacts-083",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "forward_only",
+      "retain_on_end"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "One vocabulary only: `connection.contract_set` and every reply use the `on_revoke` words, and an unknown word, a retired word (`keep`, `retain`, `forward_only`), a boolean or the retired member `retain_on_end` is refused `Malformed` with no"
+  },
+  {
+    "id": "INV-mod-contacts-084",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "`contact.merge` (Sensitive, owner-only) merges one person node into another as a reversible view (`contact.merged`, `contact.unmerge`): petname of the kept node, union of surfaces and links, strictest standing, lower trust level, a permissi"
+  },
+  {
+    "id": "INV-mod-contacts-085",
+    "disposition": "name-hit",
+    "tokens": [
+      "normalise_address"
+    ],
+    "tests": [
+      "tests/uc-normalise-address-failure-mode.test.ts",
+      "tests/uc-normalise-address-success.test.ts"
+    ],
+    "n": 2,
+    "head": "`contact.merge_candidates` lists pairs (the same did, or a surface equal after `normalise_address`) and merges nothing; `contact.merge` merges on the person's call and, for the shadow person of a messaging account only, by the automatic mer"
+  },
+  {
+    "id": "INV-mod-contacts-086",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "strictest_profile"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A person's privacy profile (`Standard` or `Private`) is set only by the owner with `contact.set_privacy`, lives on the personal chain where no friendship-chain commit can carry it, and is read by the daemon with `ContactBook::privacy_profil"
+  },
+  {
+    "id": "INV-mod-contacts-087",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "guardian_degraded"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A friend with standing `Active` can be chosen as a recovery guardian with `contact.set_guardian` (the layer kind `Guardian` through the door), and `contact.show` reports the guardian's liveness and `guardian_degraded` when fewer than the th"
+  },
+  {
+    "id": "INV-mod-contacts-088",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "LIVE_INVITES_MAX"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection.invite_revoke` ends a live invite at the door and lists it as `revoked`; `connection.invite` with `supersedes` revokes the named live invite first, so a renewing screen never accumulates live invites toward `LIVE_INVITES_MAX`; a"
+  },
+  {
+    "id": "INV-mod-contacts-089",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "`connection.redeem` and `connection.respond` with `accept` true are refused `CardRequired` before any door call when no `card` is given; declining needs none."
+  },
+  {
+    "id": "INV-mod-contacts-090",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "awaiting_approval"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`connection.redeem`, `connection.respond` and `connection.end` report `delivery` from the mailbox's state without waiting for it: a redeem toward an offline inviter shows `awaiting_approval` with `queued`, and an end toward an offline peer "
+  },
+  {
+    "id": "INV-mod-contacts-091",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "pair_outbox_full",
+      "pair_dead_letter_full"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "The `delivery` of a connect or an end is the mailbox's honest state and no better: one of `queued` (with the mailbox's `reason`), `stored` (with `refused`, the endpoints that refused), `delivered`, `failed` (a dead letter, `retry` true), `e"
+  },
+  {
+    "id": "INV-mod-contacts-092",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "generation_unread"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A dead letter or an expired item is retried only by the person: `connection.delivery_retry` asks the door to resend from the current state when the item is `failed` or `expired` and is `NotRetryable` in any other state, nothing is retried o"
+  },
+  {
+    "id": "INV-mod-contacts-093",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "person_facts",
+      "account_of",
+      "link_account"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "`ContactBook::known_senders` answers the name and the lower-cased address domains of every person not erased, for the look-alike flag of `mod-bridges`, and faults as a `ViewFault`; a shadow person or a foreign contact of a bridged network i"
+  },
+  {
+    "id": "INV-mod-contacts-094",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "`ContactBook::display_name` answers the name the person set, else the entry's name, else the name of an accepted card, else none, and `ContactBook::shadow_standing` answers the standing of a shadow person by its id; `contact.block` accepts "
+  },
+  {
+    "id": "INV-mod-contacts-095",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The catalogue entry of `connection.invite` lists exactly the five input members of its operation row, `ttl_ms`, `name`, `invitee`, `supersedes` and `card`, each with `secret` false and none marked required (the catalogue cannot state a cond"
+  },
+  {
+    "id": "INV-mod-contacts-096",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "contract_override"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "A contract override that a friend recorded (`contract.term_overridden` of `mod-fleet`) is shown to the person: `contact.show` lists it in `overrides` (holder, term, reason, time) and it is one notice of kind `contract_override`, cleared by "
+  },
+  {
+    "id": "INV-mod-contacts-097",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "end_relationship"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(the sibling arm of the recorded sever) When the owner's own `connection.ended` is read on a sibling device, one that did not end the relationship, that device's next `connection.sync` also asks the door to end the relationship secrets (`en"
+  },
+  {
+    "id": "INV-mod-contacts-098",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "awaiting_approval"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(a connect never stalls silently) A redeem the door accepted is kept by the door as an attempt before `connection.redeem` answers, and `connection.attempts` lists it until it finishes or ends, so a connect never ends with the redeemer holdi"
+  },
+  {
+    "id": "INV-mod-contacts-099",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a connect that does not advance is named, not silent) An attempt whose handshake did not advance within the deadline of one of its steps (the daemon's watchdog, which owns the deadlines and the step words) is listed by `connection.attempts"
+  },
+  {
+    "id": "INV-mod-contacts-100",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(testkit INV-testkit-162) The module knows which card heads it holds and answers by name when the one it needs is missing, never by falling back to another identity. The head of a party's card on a friendship is the id of the commit that ca"
+  },
+  {
+    "id": "INV-mod-contacts-101",
+    "disposition": "name-hit",
+    "tokens": [
+      "account_of",
+      "link_account",
+      "person_facts",
+      "trust_level",
+      "permission_from",
+      "shadow_standing"
+    ],
+    "tests": [
+      "tests/uc-contact-materializers-uplift.test.ts",
+      "tests/uc-s6-register-integrity-trust-read.test.ts"
+    ],
+    "n": 2,
+    "head": "(crosslink with mod-bridges; INV-mod-bridges-122) An `account_of` edge written by `link_account` is an adapter claim and only that: no read of this module takes friend status, trust or standing from it. `is_friend`, `person_facts`, `trust_l"
+  },
+  {
+    "id": "INV-mod-contacts-102",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "refused_permanent",
+      "not_yet_hosted_exhausted",
+      "peer_fetched"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(crosslink with the mailbox; INV-mailbox-081, 083, 085) The `delivery` of a connect or an end, when it is `failed` (a dead letter), carries the `DeadReason` as `reason` (`refused_permanent` or `not_yet_hosted_exhausted`, equal refusals equa"
+  },
+  {
+    "id": "INV-mod-contacts-103",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "account_of",
+      "account_owner",
+      "shadow_standing"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(crosslink with mod-bridges; INV-mod-bridges-108) A detach of a bridged account erases the account's shadow persons and their `account_of` edges, unless the person kept the messages (the kept messages name them, so both stay), and the reads"
+  },
+  {
+    "id": "INV-mod-contacts-104",
+    "disposition": "name-hit",
+    "tokens": [
+      "known_senders",
+      "normalise_address"
+    ],
+    "tests": [
+      "tests/uc-normalise-address-failure-mode.test.ts",
+      "tests/uc-normalise-address-success.test.ts"
+    ],
+    "n": 2,
+    "head": "(crosslink with mod-bridges; INV-mod-bridges-073) `known_senders` answers each person's domains as the lower-cased domain of every surface that is an address after `normalise_address` (rule C-2), in ascending order, without a duplicate, and"
+  },
+  {
+    "id": "INV-mod-contacts-105",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a fresh pair lost the bilateral anchor and the failure was not shown) A connection is `connected`, and its person is a `Friend`, only when the friendship chain of the pair exists and holds both parties' anchor: the chain is created by the "
+  },
+  {
+    "id": "INV-mod-contacts-106",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a peer's friendship commit rebound a local handshake row) A peer's commit, of any kind, never changes this person's own state: it writes only its own author's record under the key of INV-mod-contacts-061, and a `connection.*` commit, a cha"
+  },
+  {
+    "id": "INV-mod-contacts-107",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "known_senders"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(a contact read leaked invite codes and credentials) Every read operation of this module (`contact.show`, `contact.list`, `contact.query`, `connection.invites`, `connection.attempts`, `known_senders`) returns exactly the members of its decl"
+  },
+  {
+    "id": "INV-mod-contacts-108",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(the peer-trust gate failed open for a contact kind the gate did not name) The friendship chain admits from a peer only the kinds of its own table in section 2.1, an admit list and not a deny list of names: every other kind a peer authors, "
+  },
+  {
+    "id": "INV-mod-contacts-109",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "author_unresolved"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(a peer fact judged before the signing key loaded, and a replay that reordered) A view that must tell the owner's own records from a peer's does so from the owner's keys as the layer holds them and from nothing else: while the keys are not "
+  },
+  {
+    "id": "INV-mod-contacts-110",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(friend status was read from a graph node a peer could plant, and the read was cut at a row limit) Friend status, the set of friends and whether a relationship ended are read only from the person's own records (the `person.kind_updated` row"
+  },
+  {
+    "id": "INV-mod-contacts-111",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a sibling device could not recognise the other device's presented key, and attribution stopped at the first mismatch) The facts the owner holds about a person (relation, trust level, standing, archive state, petname, permissions given) are"
+  },
+  {
+    "id": "INV-mod-contacts-112",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a refused revoke was swallowed into a generic connection failure) Every refusal of an append made for an operation of this module reaches the caller by the refusal's own name (the `Reject` word of the chain, for example `Reject::UnknownAut"
+  },
+  {
+    "id": "INV-mod-contacts-113",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(a field report: a vouch made for a channel membership minted a friendship) A friendship, its `Friend` relation and its `connected` state are made and counted only from the two-party ceremony vouches of rule 7 (the `ceremony.relationship` o"
+  },
+  {
+    "id": "INV-mod-contacts-114",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(field report: the bilateral recovery path did not emit the genesis anchor; INV-mod-contacts-105, INV-chain-047, INV-chain-198; \ud83d\udfe0 section 7 item 39) A friendship re-established through the bilateral recovery path (one party restored its ide"
+  },
+  {
+    "id": "INV-mod-contacts-115",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(owner security rows; \ud83d\udfe0 section 7 item 40) An ended relationship is final. When the standing of a person is `Removed` (rule K-7: the current friendship chain holds a `connection.ended` of either party, whoever wrote it), `connection.redeem`"
+  },
+  {
+    "id": "INV-mod-contacts-116",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "connection_completed"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(owner security rows) The ended and blocked checks fail closed. Before `connection.redeem` and `connection.respond` with `accept` true call the door, the module derives the friendship chain id of the pair from the person's own latest `conne"
+  },
+  {
+    "id": "INV-mod-contacts-117",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "social_search",
+      "add_to_channel"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(mod-discovery request R-35, INV-mod-discovery-142 (a); \ud83d\udfe0 section 7 item 41) The permission `social_search` is the third name of rule L-2, granted per friend and withdrawn per friend by the person with `contact.set_permission` like `add_to_"
+  },
+  {
+    "id": "INV-mod-contacts-118",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(owner question on the flow score: T-2 to T-5 had exact cases and no laws) Computed trust obeys four laws for every edge set, checked over generated sets (AT-mod-contacts-129): (a) adding an edge never lowers the `Max`-combined trust of any"
+  },
+  {
+    "id": "INV-mod-contacts-119",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "compute_trust",
+      "compute_trust_bidirectional",
+      "trust_paths",
+      "trust_horizon",
+      "hop_distance",
+      "trust_flow"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(the same owner question: trust is always computed, never stored) A computation of trust writes nothing: `compute_trust`, `compute_trust_bidirectional`, `trust_paths`, `trust_horizon`, `hop_distance`, `trust_flow` and the operations `trust."
+  },
+  {
+    "id": "INV-mod-contacts-120",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "trust_flow",
+      "compute_trust"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(a field defect: a forwarder read a stored `trust_flow` that nothing wrote, so it was always 0) `ContactsModule::trust_flow(who)` is the one read of a peer's flow score for other modules: it runs `compute_trust` from the owner to `who` with"
+  },
+  {
+    "id": "INV-mod-contacts-121",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "WITHDRAWN (credential redesign): an opinion is an `Opinion` credential of mod-identity, with no BBS; see INV-mod-identity-126."
+  },
+  {
+    "id": "INV-mod-contacts-122",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) The contract provenance view shows, for one contact screen, the chain of hops that led to a contract: each hop's identity, scope and terms as the chain check of mod-fleet returns them (INV-mod-fleet-068), read only; a chain t"
+  },
+  {
+    "id": "INV-mod-contacts-123",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "small_graph_exception"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The Sybil risk scorer.** `trust.sybil_score` (ReadOnly; argument `person`*) returns `score` in micro units (`MICRO` 1,000,000) with its four parts `vouch`, `independence`, `in_person` and `witness`, `small_graph_exception` "
+  },
+  {
+    "id": "INV-mod-contacts-124",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "social_proof"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The personhood adapters.** `trust.personhood` reads the person's `attribute:personhood` credential through `credential::verify` (class `Access`) and the edges of INV-mod-contacts-123. `trust.personhood` (ReadOnly; `person`*"
+  },
+  {
+    "id": "INV-mod-contacts-125",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The witness ceremony.** A witness attestation signs `[witness, sorted subjects, nonce, at_ms, in_person]` under the new signature domain `naoms/contacts/witness/v1`; \ud83d\udfe0 this replaces a plain string signature. The record `con"
+  },
+  {
+    "id": "INV-mod-contacts-126",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "COHERENCE_COLD_START"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The coherence beacon.** `connection.coherence` (ReadOnly; `id`*) compares the topics of the viewer with those of one friend; a topic is a lower-cased tag of the `metadata` branch, one set per friendship chain. Let N be the "
+  },
+  {
+    "id": "INV-mod-contacts-127",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "MEDIATOR_TTL_MS"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The mediator routing queue.** A person who cannot reach a recipient may hand a sealed item to a connected friend who relays it. The item is sealed by the layer (INV-crypto-038), never by this module, so the relay sees ciphe"
+  },
+  {
+    "id": "INV-mod-contacts-128",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(owner ruling) **The co-occurrence edge enricher.** `contact.co_occurred` is a kind of the `contacts` branch of the personal chain (declared in section 2.1). The reducer derives edges with a pure function of `{people[{id, role}], occurred_a"
+  },
+  {
+    "id": "INV-mod-contacts-129",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "add_to_channel",
+      "social_search"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(security: authority and consent; INV-mod-contacts-027, L-2) A person's agent may change the permissions the person grants a friend (`add_to_channel`, `call`, `social_search`), because the person may trust their agent with that chore. It do"
+  },
+  {
+    "id": "INV-mod-contacts-130",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A friend learns which devices the other side has, from the friendship chain itself: when a pairing of a device of a person completes (INV-mod-devices-006), that person's daemon appends `friendship.peer_device_added` (the device did, its tra"
+  },
+  {
+    "id": "INV-mod-contacts-131",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A friendship chain admits a note between its two parties: `friendship.note` is allowed on the content branch of a friendship chain, authored by one of its two parties, and is read by those two parties only (no hive, no third friend, and no "
+  },
+  {
+    "id": "INV-mod-contacts-132",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "When a friend retires a device the other side stops accepting it. The retiring person's daemon appends `friendship.peer_node_revoked` on each friendship chain, signed as its own party of that chain (never the root identity), with a commitme"
+  },
+  {
+    "id": "INV-mod-contacts-133",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(privacy; owner ruling: choosing the R-card is essential to connecting) `connection.invite` takes an optional `card`, an `rcard_id` of the inviter's own cards: any other id, or an unknown id, is refused `CardNotOwn` (\ud83d\udfe0 the name) with nothin"
+  },
+  {
+    "id": "INV-mod-contacts-134",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "end_pending"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(a fork-seen end; security, MUST; \ud83d\udfe0 the names `broken`, `cause`, `end_pending` and the members and doors are defaults of this spec; the way back is \ud83d\udfe1 PENDING O6) A contact whose relationship record the layer marked `fork_seen` is `broken`, "
+  },
+  {
+    "id": "INV-mod-contacts-135",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(credential redesign \u00a75.1, 2.2, 7 \"a presentation is required\") A connection is the pair of relationship credentials and their presentations: the views of this module read the two `rel:connection` credentials of the friendship chain (ceremo"
+  },
+  {
+    "id": "INV-mod-contacts-136",
+    "disposition": "unmatched-name",
+    "tokens": [
+      "REL_WEIGHT",
+      "OPINION_WEIGHT"
+    ],
+    "tests": [],
+    "n": 0,
+    "head": "(credential redesign \u00a78.1 (8), (9)) Trust edges are derived from credentials and never stored as a second object: the trust graph of T-2 to T-4 is a pure fold over the credentials this device can read: a live `rel:connection` pair is the ba"
+  },
+  {
+    "id": "INV-mod-contacts-137",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(credential redesign \u00a75.1 (4), 7) The card follows the pair: `connection.card_presented` is a presentation of mod-identity INV-mod-identity-121 (the card item, with the credentials the person attached, signed by the card's holder for the au"
+  },
+  {
+    "id": "INV-mod-contacts-138",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "The trust level is read from the owner's permission credential: `contact.set_trust` to `Trusted` is `credential.issue` of the built-in type `perm:trust_trusted` (one StepUp) by the owner's `RelationshipId` for that pair to the contact's `Re"
+  },
+  {
+    "id": "INV-mod-contacts-139",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(\ud83d\udfe0 the factors) An `Achievement` edge weighs `mul_micro(ACHIEVEMENT_WEIGHT, factor)` where `factor` (millionths) is: for `achievement:project` 600000 with no `evidence`, and with evidence `750000 + 250000 * n / 3` (integer division, `n` the"
+  },
+  {
+    "id": "INV-mod-contacts-140",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(\ud83d\udfe0 the reader rule) Whether a friendship has ended is read by one predicate from the end records of the friendship chains and from nothing a peer could plant: a peer is ended when the person has at least one friendship row for it and every "
+  },
+  {
+    "id": "INV-mod-contacts-141",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "(\ud83d\udfe0 the refusal word is the one of INV-mod-hives-112) No operation of this module toward a peer signs, proves or sends under the root identity: the accepting `connection.respond`, a message on a friendship and a message to a channel use the "
+  },
+  {
+    "id": "INV-mod-contacts-142",
+    "disposition": "no-identifier",
+    "tokens": [],
+    "tests": [],
+    "n": 0,
+    "head": "A name a peer supplied (the name in a handshake, the name in a payload, a card name) is stored with its origin `claimed`, is never used to identify a person (a person is identified by its identifier only), and is ranked after the names the "
+  }
+]

@@ -1,0 +1,293 @@
+{
+  "same_file_writes_by_field": [
+    {
+      "field": "dbHandle",
+      "n": 7
+    },
+    {
+      "field": "cap",
+      "n": 3
+    },
+    {
+      "field": "counted",
+      "n": 2
+    },
+    {
+      "field": "windowMs",
+      "n": 2
+    },
+    {
+      "field": "senderDid",
+      "n": 2
+    },
+    {
+      "field": "nextEligibleAtIso",
+      "n": 2
+    },
+    {
+      "field": "ownerDid",
+      "n": 2
+    },
+    {
+      "field": "chainId",
+      "n": 2
+    },
+    {
+      "field": "resolveChainNodeHandler",
+      "n": 1
+    },
+    {
+      "field": "identityAttestationV1",
+      "n": 1
+    },
+    {
+      "field": "peerDid",
+      "n": 1
+    },
+    {
+      "field": "readerDone",
+      "n": 1
+    },
+    {
+      "field": "freshnessTarget",
+      "n": 1
+    },
+    {
+      "field": "currentBytes",
+      "n": 1
+    },
+    {
+      "field": "addedBytes",
+      "n": 1
+    },
+    {
+      "field": "migrateTo",
+      "n": 1
+    },
+    {
+      "field": "details",
+      "n": 1
+    },
+    {
+      "field": "queryHandler",
+      "n": 1
+    },
+    {
+      "field": "scorer",
+      "n": 1
+    },
+    {
+      "field": "freshnessIssuedAt",
+      "n": 1
+    },
+    {
+      "field": "fcId",
+      "n": 1
+    },
+    {
+      "field": "minWitnesses",
+      "n": 1
+    },
+    {
+      "field": "__nextEditBody",
+      "n": 1
+    },
+    {
+      "field": "linkHandler",
+      "n": 1
+    },
+    {
+      "field": "stopped",
+      "n": 1
+    },
+    {
+      "field": "freshnessProof",
+      "n": 1
+    },
+    {
+      "field": "freshnessExpiresAt",
+      "n": 1
+    },
+    {
+      "field": "cause",
+      "n": 1
+    },
+    {
+      "field": "humanOwnerDid",
+      "n": 1
+    },
+    {
+      "field": "writer",
+      "n": 1
+    },
+    {
+      "field": "__I07_AGENT_DID",
+      "n": 1
+    },
+    {
+      "field": "deferKey",
+      "n": 1
+    },
+    {
+      "field": "rcardBiscuitRootPubHex",
+      "n": 1
+    },
+    {
+      "field": "chainSource",
+      "n": 1
+    },
+    {
+      "field": "eventType",
+      "n": 1
+    },
+    {
+      "field": "reason",
+      "n": 1
+    },
+    {
+      "field": "rcardContract",
+      "n": 1
+    },
+    {
+      "field": "proc",
+      "n": 1
+    },
+    {
+      "field": "maxLamportTs",
+      "n": 1
+    }
+  ],
+  "same_file_write_files": [
+    {
+      "file": "messaging/actor-rate-limit.ts",
+      "n": 6
+    },
+    {
+      "file": "messaging/rate-limit.ts",
+      "n": 6
+    },
+    {
+      "file": "messaging/media-quota.ts",
+      "n": 5
+    },
+    {
+      "file": "handshake/tests/probe-harness.ts",
+      "n": 4
+    },
+    {
+      "file": "handshake/operational-staple-build.ts",
+      "n": 4
+    },
+    {
+      "file": "reducers/pending-refs.ts",
+      "n": 3
+    },
+    {
+      "file": "handshake/revocation.ts",
+      "n": 3
+    },
+    {
+      "file": "enrichers/tests/integ-bilateral-member-of-completer-uplift.test.ts",
+      "n": 3
+    },
+    {
+      "file": "handshake/witness-ceremony.ts",
+      "n": 3
+    },
+    {
+      "file": "reducers/friendship-branch-allowlist.ts",
+      "n": 2
+    },
+    {
+      "file": "handshake/cross-server-external-binding.ts",
+      "n": 2
+    },
+    {
+      "file": "api-handlers-handshake-respond-vp.ts",
+      "n": 2
+    },
+    {
+      "file": "tests/e2e-intent-06-agent-edit-retract.test.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake/personhood-adapter.ts",
+      "n": 1
+    },
+    {
+      "file": "messaging/read-coalescer.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake/sybil-scorer.ts",
+      "n": 1
+    },
+    {
+      "file": "tests/e2e-friendship-chat-agent-bubble-distinction.test.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake/mediator.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake/recovery-buddy-recovery.ts",
+      "n": 1
+    },
+    {
+      "file": "handshake/coherence-beacon.ts",
+      "n": 1
+    },
+    {
+      "file": "enrichers/peer-op-key-fanout.ts",
+      "n": 1
+    }
+  ],
+  "same_file_raises": [
+    {
+      "name": "RelationshipIdentityError",
+      "n": 3
+    },
+    {
+      "name": "VouchVerificationError",
+      "n": 3
+    },
+    {
+      "name": "ActorRateLimitedError",
+      "n": 1
+    },
+    {
+      "name": "RateLimitedError",
+      "n": 1
+    },
+    {
+      "name": "MediaQuotaExceededError",
+      "n": 1
+    },
+    {
+      "name": "ExternalBindingPersistError",
+      "n": 1
+    },
+    {
+      "name": "EraseCrossChainRefusedError",
+      "n": 1
+    },
+    {
+      "name": "RetractErasureApplyError",
+      "n": 1
+    },
+    {
+      "name": "BlobRefsSchemaStaleError",
+      "n": 1
+    },
+    {
+      "name": "ContactsCorpusShapeError",
+      "n": 1
+    }
+  ],
+  "cross_file_writes_excluded": 108
+}
