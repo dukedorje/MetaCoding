@@ -144,3 +144,50 @@ Already separated as `spec/crates` rather than features: `types`, `crypto`, `sec
 ### Next pass, when the graph file stats
 
 One island. Prefer a name that already matches on both sides and is not the blob: `contacts`, `hives`, `roadmap`, `calling`, or `chat`. Rust side is small (11–23 files). TypeScript side is hundreds to about a thousand. The deliverable is the seven documents for that island, with `EFFECT` rows only where SCIP or a semantic lane actually produced them, plus a short fixture list drawn from existing tests. The spec section for that module gets a keep/drop against the existing `INV-*` / `AT-*` mass. The room does not start in that pass.
+
+## Pass 1 — graph open, 2026-11-07
+
+The lock mount answered. `graph.lbug` is 519,864,320 bytes, mtime 2026-11-04 10:25. No indexer was running. Reads used `Store.open(..., { readOnly: true })`. Nothing was written.
+
+### Fitness, now measured
+
+| Fact | Value |
+|---|---|
+| Symbols | 1,902,501. `scip`/`ts` 1,224,783, `tree_sitter`/`ts` 493,703, `scip`/`js` 117,848, `tree_sitter`/`js` 33,505, `tree_sitter`/`rs` 27,916, plus small swift, kotlin, python. |
+| Snapshot split | Tree-sitter symbols sit on commit `ac4682148fc9208217719d5b4d3c2f52d617700c` (558,976). The SCIP bulk sits on `repo_commit_sha = null` (1,342,631). Python SCIP on that commit is 892. |
+| Edges | `CALLS` 475,569, `REFERENCES` 772,621, `READS_FIELD` 649,517, `CONTAINS` 545,693, `CONSTRUCTS` 111,893, `TYPE_OF` 32,304, `WRITES_FIELD` 22,436, `RAISES` 13,873, `IMPLEMENTS` 916, `ANNOTATES` 8. `IMPORTS`, `EXTENDS`, `INJECTS`, `OVERRIDES` are 0. |
+| Who the edges hang on | `READS_FIELD`, `WRITES_FIELD`, and `RAISES` are tree-sitter callers (SCIP reads are 104, SCIP writes are 0). `CALLS` are mostly `tree_sitter → scip` (248,945) and `tree_sitter → tree_sitter` (199,716). `scip → scip` calls are 5,578. |
+| FTS | `tokens.fts.sqlite` is 3.56 GB and `count(*)` on `tokens` is 0. |
+| Health | `index_health` is still `RUNNING` for `naoms@main`, run `2026-11-01T18:59:52.614Z`, pid 54066, heartbeat `2026-11-01T19:08:22.175Z`, `finished_at` null. That pid is gone. CLI reads work. The MCP fitness gate will still caveat aggregates, and it will refuse an empty answer, until this row is finalized. Do not treat a refused empty MCP answer as "no such symbol." |
+| CTKR | No `ctkr/` directory. No subsystem partition has been computed. |
+| Workspace | `metacoding status` on `naoms` says the indexed commit is current and the tree has 2 dirty paths (`.claude/settings.json`, untracked `tsconfig.json`). Local `main` is **behind `origin/main` by 2003 commits**. The graph describes this checkout, not the remote tip. |
+
+### What the edges will and will not support
+
+Package directories are already the call islands. Of 254,485 tree-sitter `CALLS` whose caller file is under `src/packages/`, 254,474 stay inside the same package directory. The 11 that leave are real and small: voice-agent to voice-turn-detector, meeting-recording to media-core, plus two test fixtures (ad4m → adapter-calendar `MANIFEST`, adapter-email → a Gmail mock). Louvain on `CALLS` would redraw the package tree. It will not find a hidden cross-package architecture.
+
+Inside a package, calls do cross files. Contacts: 5,522 tree-sitter calls, 4,339 same-file, so about 1,200 cross-file and still inside `src/packages/contacts/`. Same shape for hives, roadmap, calling, chat, photos, plan, `core/chain`, and `core/transport`. The within-package file cut is the seam map we can trust today.
+
+`READS_FIELD` and `WRITES_FIELD` do not cross files honestly. A contacts read of `branch` is bound to `clients/tui/src/widget/fleet_operations.rs` field `branch`. The same client trees (`clients/tui/tests`, `clients/browser/tests`, `clients/ios`, `clients/tui/src`) dominate the "external" read list for every island checked, including chain and transport. That is short-name collision, not a data seam. Do not build D3 from a cross-file field edge. Same-file `READS_FIELD` / `WRITES_FIELD` are usable. Cross-file field flow waits on SCIP field occurrences that carry a resolved target, or on a semantic lane that refuses ambiguous names.
+
+`IMPORTS = 0` means the module seam is invisible. Cross-package coupling that travels through a registry, a string, or an import type is not in this graph. `feature-registry` has 85 tree-sitter symbols and 153 calls, 152 of them internal. It is not, on `CALLS`, the plugin seam farmOS had. A string and registry harvest still has to happen, and FTS cannot do it until the token table has rows.
+
+### D6 for the candidate islands (tree-sitter symbols, call closure)
+
+| Prefix | Symbols | Calls | Same file | Writes | Calls that leave |
+|---|---:|---:|---:|---:|---:|
+| `src/packages/contacts/` | 6,502 | 5,522 | 4,339 | 161 | 0 |
+| `src/packages/roadmap/` | 3,144 | 2,603 | 1,727 | 108 | 0 |
+| `src/packages/plan/` | 7,552 | 5,547 | 3,971 | 113 | 0 |
+| `src/packages/hives/` | 8,794 | 7,063 | 5,734 | 197 | 0 |
+| `src/packages/chat/` | 10,475 | 7,883 | 6,840 | 393 | 0 |
+| `src/packages/calling/` | 9,841 | 7,830 | 6,115 | 583 | 0 |
+| `src/packages/photos/` | 13,307 | 7,594 | 6,359 | 1,280 | 0 |
+| `src/core/chain/` | 27,604 | 29,095 | 21,762 | 615 | (inside core; not in the package tally) |
+| `src/core/transport/` | 24,152 | 23,169 | 18,549 | 953 | same |
+
+Contacts stays the first island. It is closed under calls, it has a Rust crate and `spec/modules/mod-contacts.md` (302 lines that match `INV-` or `AT-`), and the TypeScript package has 321 `*.test.ts` files. Roadmap is the smaller alternate. Photos is a large package with no `mod-*` crate; it stays a D1 disagreement, not the first spec pass. Chain and transport stay the kernel blob (27k and 24k tree-sitter symbols).
+
+### Still owed before the room
+
+Same-file effect rows for contacts, a scenario list taken from the 321 test names (not from the 302 spec markers), and a keep/drop of `mod-contacts.md` against those tests. The index health row wants a human decision: finalize the abandoned `RUNNING` record, or leave it so the MCP gate keeps refusing unmarked aggregates. This pass did not touch it. Pulling `naoms` forward 2003 commits invalidates this graph; do that only when a re-index is the work.
