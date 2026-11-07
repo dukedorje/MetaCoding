@@ -109,7 +109,7 @@ export interface IndexSessionResult {
 }
 
 /** Normalize a user-supplied scip-language token to the loader's code. */
-export function normalizeScipLang(token: string): "ts" | "py" | "php" {
+export function normalizeScipLang(token: string): "ts" | "py" | "php" | "rs" {
   switch (token.toLowerCase()) {
     case "ts":
     case "typescript":
@@ -119,9 +119,12 @@ export function normalizeScipLang(token: string): "ts" | "py" | "php" {
       return "py";
     case "php":
       return "php";
+    case "rs":
+    case "rust":
+      return "rs";
     default:
       throw new Error(
-        `unknown --scip-language '${token}' (expected ts|typescript|py|python|php)`,
+        `unknown --scip-language '${token}' (expected ts|typescript|py|python|php|rs|rust)`,
       );
   }
 }
@@ -303,7 +306,7 @@ export async function runIndexSession(
             ticket,
             branch: intent.branch,
             repo: intent.repo,
-            language: lang === "typescript" ? "ts" : "py",
+            language: normalizeScipLang(lang),
             repo_commit_sha: intent.commitSha,
             indexed_at: intent.runStamp,
             perCommitIdentity: intent.perCommitIdentity,
@@ -523,6 +526,11 @@ export function detectScipLanguages(repoPath: string): ScipLanguage[] {
       existsSync(join(repoPath, "pyproject.toml")) ||
       existsSync(join(repoPath, "setup.py"))) {
     langs.push("python");
+  }
+  // rust-analyzer needs a Cargo project to load, so a stray .rs file is not
+  // enough — the target must be (the root of) a crate or workspace.
+  if (existsSync(join(repoPath, "Cargo.toml"))) {
+    langs.push("rust");
   }
   return langs;
 }

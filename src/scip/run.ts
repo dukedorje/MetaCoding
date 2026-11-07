@@ -3,6 +3,7 @@
 // Currently supports:
 //   - typescript  (scip-typescript, npm @sourcegraph/scip-typescript)
 //   - python      (scip-python,     npm @sourcegraph/scip-python)
+//   - rust        (rust-analyzer scip — the rustup component, not an npm package)
 //
 // Both share the same SCIP protobuf output shape, so the loader doesn't
 // care which indexer produced the file.
@@ -50,7 +51,7 @@ export function resolveScipBin(binary: string): string | null {
   return Bun.which(binary);
 }
 
-export type ScipLanguage = "typescript" | "python" | "php";
+export type ScipLanguage = "typescript" | "python" | "php" | "rust";
 
 // scip-php is a PHP tool (davidrjenni/scip-php), not an npm binary, so we run
 // it through its published Docker image rather than resolveScipBin. Override
@@ -77,6 +78,8 @@ export interface RunScipResult {
 interface IndexerSpec {
   binary: string;
   args(opts: RunScipOpts, outPath: string): string[];
+  /** Working directory for the indexer process (default: inherited). */
+  cwd?(opts: RunScipOpts): string;
 }
 
 // php is not here — it runs via Docker in runScipPhp, not a resolveScipBin binary.
@@ -122,6 +125,20 @@ const INDEXERS: Record<Exclude<ScipLanguage, "php">, IndexerSpec> = {
       ];
     },
   },
+  rust: {
+    // `rust-analyzer scip <dir>` loads the Cargo workspace at <dir> (running
+    // `cargo metadata` and build scripts) and indexes every workspace member.
+    // It is run FROM the target so the rustup proxy honours the target's
+    // rust-toolchain.toml — that toolchain needs the rust-analyzer component
+    // (`rustup component add rust-analyzer`).
+    binary: "rust-analyzer",
+    args(opts, outPath) {
+      return ["scip", resolve(opts.targetRepo), "--output", outPath];
+    },
+    cwd(opts) {
+      return resolve(opts.targetRepo);
+    },
+  },
 };
 
 let cachedEmptyEnvPath: string | null = null;
@@ -145,7 +162,11 @@ export async function runScip(opts: RunScipOpts): Promise<RunScipResult> {
   const bin = resolveScipBin(spec.binary) ?? spec.binary;
   const args = spec.args(opts, outPath);
 
-  const proc = Bun.spawn([bin, ...args], { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn([bin, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    cwd: spec.cwd?.(opts),
+  });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),

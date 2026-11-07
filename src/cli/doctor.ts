@@ -81,6 +81,30 @@ export async function runDoctor(_args: ParsedArgs): Promise<void> {
     );
   }
 
+  // ── SCIP Rust ────────────────────────────────────────────────────────────
+  // rust-analyzer is usually a rustup proxy, which exists on PATH even when
+  // the component is not installed — so ask it for a version, not just which.
+  const raPath = resolveScipBin("rust-analyzer");
+  const raVer = raPath ? await getBinaryVersion(raPath) : null;
+  if (raPath && raVer) {
+    lanes.push({
+      label: "SCIP Rust",
+      ok: true,
+      detail: `rust-analyzer found at ${raPath} (v${raVer})`,
+    });
+  } else {
+    lanes.push({
+      label: "SCIP Rust",
+      ok: false,
+      detail: raPath ? `${raPath} present but not runnable (component missing?)` : "not found",
+      installHint: "rustup component add rust-analyzer",
+    });
+    recommendations.push(
+      "Install rust-analyzer for CALLS/REFERENCES/IMPLEMENTS edges (Rust) — in a repo with\n" +
+        "    a rust-toolchain.toml, add it to THAT toolchain:\n    rustup component add rust-analyzer",
+    );
+  }
+
   // ── LSP TypeScript ───────────────────────────────────────────────────────
   const tsLspPath = Bun.which("typescript-language-server");
   if (tsLspPath) {

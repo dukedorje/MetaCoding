@@ -80,7 +80,7 @@ function usage(): never {
 
 Usage:
   metacoding index <path>      [--data-dir <dir>] [--repo <name>] [--branch <name>] [--scip] [--per-commit-identity]
-                               [--load-scip <index.scip> [--scip-language ts|py|php] [--scip-psr4 <sidecar.json>]]
+                               [--load-scip <index.scip> [--scip-language ts|py|php|rs] [--scip-psr4 <sidecar.json>]]
                                [--allow-empty-index] [--min-coverage <0..1>]
   metacoding index-all <parent>[--data-dir <dir>] [--branch <name>] [--scip] [--per-commit-identity]
                                [--allow-empty-index] [--min-coverage <0..1>]
@@ -383,10 +383,11 @@ function haveScipBinary(name: string): boolean {
   return resolveScipBin(name) !== null;
 }
 
-function haveScipBinaries(): { typescript: boolean; python: boolean; any: boolean } {
+function haveScipBinaries(): { typescript: boolean; python: boolean; rust: boolean; any: boolean } {
   const ts = haveScipBinary("scip-typescript");
   const py = haveScipBinary("scip-python");
-  return { typescript: ts, python: py, any: ts || py };
+  const rs = haveScipBinary("rust-analyzer");
+  return { typescript: ts, python: py, rust: rs, any: ts || py || rs };
 }
 
 function resolveScipWanted(flag: string | undefined): boolean {

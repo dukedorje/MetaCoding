@@ -54,6 +54,23 @@ describe("structural extractors for naoms languages", () => {
     ]);
   });
 
+  test("rust impl members hang off the SELF type, for trait and generic impls", () => {
+    const tree = rust.parse(`
+      pub trait T { fn f(&self); }
+      pub struct Foo<X> { x: X }
+      impl T for Foo<u8> { fn f(&self) {} }
+      impl<X: Default> Foo<X> { fn make() -> Self { todo!() } }
+      impl<'a> T for &'a Foo<u16> { fn f(&self) {} }
+    `);
+    const ex = extractStructural(tree, { ...opts, grammar: "rust", filePath: "src/A.rs" });
+    tree.delete();
+    const qns = ex.symbols.map((s) => s.qualified_name);
+    expect(qns).toContain("src/A.rs::T::f");
+    expect(qns).toContain("src/A.rs::Foo::f");
+    expect(qns).toContain("src/A.rs::Foo::make");
+    expect(qns).not.toContain("src/A.rs::make");
+  });
+
   test("kotlin class, constructor param, method, interface", () => {
     expect(names("kotlin", kotlin, `
       interface I { fun f() }

@@ -121,6 +121,14 @@ claude mcp add metacoding -- metacoding serve   # writes .mcp.json
 `scip-python` indexers ship as dependencies, so a global install already
 has them. (To override with your own, `bun add -g` them onto PATH.)
 
+Rust (a repo with a root `Cargo.toml`) is indexed with `rust-analyzer scip`,
+which comes from rustup rather than npm: `rustup component add rust-analyzer`
+— for the toolchain the repo's `rust-toolchain.toml` pins, if it has one
+(`metacoding doctor` checks). rust-analyzer names symbols by module path; the
+loader rebuilds them under the file (`src/shapes.rs::Circle::unit`, impl members
+under their self type) so they merge with the tree-sitter Rust nodes, and turns
+`impl Trait for Type` into IMPLEMENTS edges.
+
 Equivalent hand-rolled `.mcp.json`:
 
 ```json

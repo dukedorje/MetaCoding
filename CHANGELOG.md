@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Rust SCIP lane
+- `--scip` runs `rust-analyzer scip` on repos with a root `Cargo.toml`;
+  `--load-scip <file> --scip-language rs` ingests a pre-built one.
+- rust-analyzer's module-path symbols are rebuilt as `<file>::<inline mods>::Type::member`
+  (impl members under the reduced self type), matching the tree-sitter Rust lane id
+  for id. Trait impls (`impl#[Self][Trait]`) become type- and member-level IMPLEMENTS.
+  Rust type references stay REFERENCES (no CONSTRUCTS guess).
+- Tree-sitter Rust: impl members now hang off the impl's `type` field, so
+  `impl Trait for Foo` methods land under `Foo` (were under `Trait`) and
+  `impl<T> Foo<T>` methods under `Foo` (were under the file).
+- SCIP symbol parser understands the `name!` macro descriptor.
+- `metacoding doctor` reports a "SCIP Rust" lane.
+
 ### Descriptive structural-analysis names
 - Preferred CLI names: `structural-profiles` and `composition-patterns`; old
   `hom-profiles` and `operads` commands remain aliases with the same artifacts.

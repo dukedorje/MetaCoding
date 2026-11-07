@@ -11,6 +11,7 @@ import type Parser from "web-tree-sitter";
 
 import type { Edge, Symbol, SymbolKind, TokenRow, Visibility } from "../store/types";
 import { symbolId } from "./identity";
+import { rustSelfTypeName } from "./rust-names";
 
 type Tree = Parser.Tree;
 type Node = Parser.SyntaxNode;
@@ -94,8 +95,12 @@ function walk(
 
   // An impl block is not its own symbol. Methods hang off the type name so
   // `impl Foo { fn new }` lands at `file.rs::Foo::new` next to `struct Foo`.
+  // The self type is the `type` field: in `impl Greeter for Person` the first
+  // type_identifier is the TRAIT, and in `impl<T> Circle<T>` there is no bare
+  // type_identifier child at all (it is a generic_type).
   if (opts.grammar === "rust" && node.type === "impl_item") {
-    const typeName = node.namedChildren.find((c) => c.type === "type_identifier")?.text;
+    const selfType = node.childForFieldName("type")?.text;
+    const typeName = selfType ? rustSelfTypeName(selfType) || undefined : undefined;
     const qn = typeName ? `${parentQn}::${typeName}` : parentQn;
     const typeSym = result.symbols.find((s) => s.qualified_name === qn) ?? parent;
     for (const child of node.namedChildren) {

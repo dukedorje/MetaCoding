@@ -32,6 +32,13 @@ import {
   phpQualifiedName,
   phpShortName,
   phpRealFile,
+  isRustModuleSymbol,
+  rustModulePrefix,
+  rustQualifiedName,
+  rustShortName,
+  rustKindOf,
+  rustImplOf,
+  type ScipSymbol,
 } from "./symbol";
 
 export interface LoadScipOpts {
@@ -43,7 +50,7 @@ export interface LoadScipOpts {
   branch: string;
   repo: string;
   /** Maps the SCIP scheme/file-extension to one of our `language` codes. */
-  language?: "ts" | "py" | "php";
+  language?: "ts" | "py" | "php" | "rs";
   /** git rev-parse HEAD at index time; null when not in a git repo. */
   repo_commit_sha?: string | null;
   /** ISO-8601 timestamp (UTC) at the moment the index was started. */
@@ -98,10 +105,16 @@ export async function loadScip(
   const defByScip = new Map<string, DefRecord>();
   let symbolsUpserted = 0;
 
+  // The kind each defined symbol was actually written with, keyed on the SCIP
+  // symbol string — pass 2 picks edge kinds from it.
+  const kindByScip = new Map<string, string>();
+  const isRust = opts.language === "rs";
+
   // SymbolInformation map per document (for kind hint and relationships).
   for (const doc of idx.documents) {
     const infoBySymbol = new Map<string, scip.SymbolInformation>();
     for (const info of doc.symbols) infoBySymbol.set(info.symbol, info);
+    const rust = isRust ? rustDocModule(doc) : null;
 
     for (const occ of doc.occurrences) {
       if (!(occ.symbol_roles & scip.SymbolRole.Definition)) continue;
@@ -116,21 +129,35 @@ export async function loadScip(
       const phpFile = isPhp
         ? (opts.phpPsr4Map && phpRealFile(parsed, opts.phpPsr4Map)) || doc.relative_path
         : doc.relative_path;
+      const info = infoBySymbol.get(occ.symbol);
+      // Rust: the document's own file-module definition IS the file symbol the
+      // Tree-sitter lane writes (qn = path); everything else is rebuilt under it.
+      const isRustFile = !!rust && rust.fileModuleSymbol === occ.symbol;
       const qn = isPhp
         ? phpQualifiedName(parsed, phpFile)
-        : qualifiedNameOf(parsed);
+        : isRust
+          ? (isRustFile ? doc.relative_path : rustQualifiedName(parsed, doc.relative_path, rust?.prefix ?? []))
+          : qualifiedNameOf(parsed);
       const lang = opts.language ?? guessLanguageFromQn(qn);
       const idSha = opts.perCommitIdentity ? opts.repo_commit_sha ?? undefined : undefined;
       const id = symbolId(lang, opts.repo, qn, idSha);
 
-      const info = infoBySymbol.get(occ.symbol);
+      const kind = isRust
+        ? (isRustFile ? "file" : rustKindOf(parsed, info?.kind))
+        : kindOf(parsed, info?.kind);
+      const shortName = isPhp
+        ? phpShortName(parsed)
+        : isRust
+          ? (isRustFile ? doc.relative_path.split("/").pop() ?? doc.relative_path : rustShortName(parsed, rust?.prefix ?? []))
+          : shortNameOf(parsed);
+      kindByScip.set(occ.symbol, kind);
       const sym: Symbol = {
         id,
-        kind: kindOf(parsed, info?.kind),
+        kind,
         language: lang,
         repo: opts.repo,
         qualified_name: qn,
-        short_name: isPhp ? phpShortName(parsed) : shortNameOf(parsed),
+        short_name: shortName,
         file: phpFile,
         line: occ.range[0] ?? 0,
         col: occ.range[1] ?? 0,
@@ -216,13 +243,40 @@ export async function loadScip(
     return bid;
   };
 
-  // Build a kind-lookup map so pass-2b can check field/type kinds without
-  // re-parsing the SCIP symbol string.  Keyed on the SCIP symbol string.
-  const kindByScip = new Map<string, string>();
-  for (const scipSym of defByScip.keys()) {
-    // Re-parse the symbol to get the kind — cheaper than a round-trip to DB.
-    const parsed = parseScipSymbol(scipSym);
-    if (parsed) kindByScip.set(scipSym, kindOf(parsed));
+  // Rust trait impls. rust-analyzer emits no is_implementation relationship;
+  // the impl is instead spelled into the member's symbol, `impl#[Self][Trait]m().`.
+  // Resolve Self and Trait by name against the types defined in this index
+  // (only when the name is unambiguous) and emit Self IMPLEMENTS Trait, plus
+  // the member IMPLEMENTS the trait's declaration of it.
+  if (isRust) {
+    const byName = { trait: new Map<string, string[]>(), type: new Map<string, string[]>() };
+    for (const [scipSym, kind] of kindByScip) {
+      const bucket = kind === "interface" ? byName.trait
+        : kind === "class" || kind === "enum" ? byName.type : null;
+      if (!bucket) continue;
+      const parsed = parseScipSymbol(scipSym);
+      const last = parsed?.descriptors[parsed.descriptors.length - 1];
+      if (!last || last.suffix !== "type" || last.name === "impl") continue;
+      const list = bucket.get(last.name) ?? [];
+      list.push(scipSym);
+      bucket.set(last.name, list);
+    }
+    const unique = (m: Map<string, string[]>, name: string): string | undefined => {
+      const l = m.get(name);
+      return l && l.length === 1 ? l[0] : undefined;
+    };
+    for (const [scipSym, def] of defByScip) {
+      if (!scipSym.includes("impl#[")) continue;
+      const parsed = parseScipSymbol(scipSym);
+      const impl = parsed ? rustImplOf(parsed) : null;
+      if (!impl?.trait) continue;
+      const traitSym = unique(byName.trait, impl.trait);
+      if (!traitSym) continue;
+      const selfSym = unique(byName.type, impl.self);
+      if (selfSym) enqueue("IMPLEMENTS", defByScip.get(selfSym)!.ourId, defByScip.get(traitSym)!.ourId);
+      const traitMember = defByScip.get(`${traitSym}${impl.member}().`) ?? defByScip.get(`${traitSym}${impl.member}#`);
+      if (traitMember) enqueue("IMPLEMENTS", def.ourId, traitMember.ourId);
+    }
   }
 
   // 2a — relationships (IMPLEMENTS, TYPE_OF, RETURNS_TYPE) from SymbolInformation.
@@ -368,7 +422,9 @@ export async function loadScip(
         enqueue("WRITES_FIELD", caller.ourId, targetDef.ourId, "scip");
       } else if (targetKind === "field" && isRead) {
         enqueue("READS_FIELD", caller.ourId, targetDef.ourId, "scip");
-      } else if (isConstructorSymbol(occ.symbol) && !isRead && !isWrite) {
+      } else if (!isRust && isConstructorSymbol(occ.symbol) && !isRead && !isWrite) {
+        // Not Rust: a bare reference to a Rust type is as likely a signature
+        // or a trait bound as a struct literal, and Rust has no constructors.
         enqueue("CONSTRUCTS", caller.ourId, targetDef.ourId);
       } else {
         enqueue("REFERENCES", caller.ourId, targetDef.ourId);
@@ -474,8 +530,23 @@ function externalQn(scipSymbol: string): string {
   return `external::${scipSymbol}`;
 }
 
-function guessLanguageFromQn(qn: string): "ts" | "py" {
+function guessLanguageFromQn(qn: string): "ts" | "py" | "rs" {
+  if (/\.rs(::|$)/.test(qn)) return "rs";
   return /\.(py|pyi)(::|$)/.test(qn) ? "py" : "ts";
+}
+
+// A rust-analyzer document's own module: the namespace-only symbol DEFINED in
+// it over the whole file (range starting 0:0). An inline `mod x {}` is also a
+// namespace definition, but its range is its name token, never 0:0.
+function rustDocModule(doc: scip.Document): { fileModuleSymbol: string | null; prefix: string[] } {
+  for (const occ of doc.occurrences) {
+    if (!(occ.symbol_roles & scip.SymbolRole.Definition)) continue;
+    if (occ.range[0] !== 0 || occ.range[1] !== 0) continue;
+    const parsed: ScipSymbol | null = parseScipSymbol(occ.symbol);
+    if (!parsed || parsed.isLocal || !isRustModuleSymbol(parsed)) continue;
+    return { fileModuleSymbol: occ.symbol, prefix: rustModulePrefix(parsed) };
+  }
+  return { fileModuleSymbol: null, prefix: [] };
 }
 
 // Detect whether a SCIP symbol string refers to a constructor.

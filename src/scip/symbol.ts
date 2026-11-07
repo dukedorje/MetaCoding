@@ -11,6 +11,7 @@
 //   type-parameter ::= '[' <name> ']'
 //   parameter      ::= '(' <name> ')'
 //   meta           ::= <name> ':'
+//   macro          ::= <name> '!'
 //   local          ::= 'local ' <id>
 //
 //   <name> = <identifier> | '`' <text> '`'   (backticks may contain spaces / suffix chars)
@@ -20,6 +21,9 @@
 // namespace descriptor whose name has a recognized source-file extension).
 
 import type { SymbolKind } from "../store/types";
+import { scip } from "@sourcegraph/scip-typescript/src/scip.ts";
+
+import { rustSelfTypeName } from "../extractor/rust-names";
 
 export type ScipSuffix =
   | "namespace"
@@ -28,7 +32,8 @@ export type ScipSuffix =
   | "method"
   | "type_parameter"
   | "parameter"
-  | "meta";
+  | "meta"
+  | "macro";
 
 export interface ScipDescriptor {
   name: string;
@@ -144,6 +149,12 @@ function readDescriptor(c: Cursor): ScipDescriptor | null {
       const name = unquote(c.src.slice(start, c.i));
       c.i++;
       return { name, suffix: "meta" };
+    }
+    if (ch === "!") {
+      // rust-analyzer: `macro_rules! foo` is `foo!`.
+      const name = unquote(c.src.slice(start, c.i));
+      c.i++;
+      return { name, suffix: "macro" };
     }
     if (ch === ".") {
       const name = unquote(c.src.slice(start, c.i));
@@ -319,6 +330,7 @@ export function kindOf(sym: ScipSymbol, scipKindHint?: number): SymbolKind {
   }
   if (last.suffix === "method") return "method";
   if (last.suffix === "meta") return "type_alias";
+  if (last.suffix === "macro") return "function";
   if (last.suffix === "type") {
     // Default to "class"; SCIP doesn't natively distinguish class vs interface in the symbol.
     // SymbolInformation.kind hint can disambiguate when populated.
@@ -331,4 +343,124 @@ export function kindOf(sym: ScipSymbol, scipKindHint?: number): SymbolKind {
     return insideType ? "field" : "function";
   }
   return "function";
+}
+
+// ---- Rust reconciliation (rust-analyzer `scip`) ----
+//
+// rust-analyzer names symbols by MODULE path inside the crate, not by file:
+//
+//   rust-analyzer cargo fixture-crate 0.1.0 shapes/Circle#
+//   rust-analyzer cargo fixture-crate 0.1.0 shapes/impl#[`Circle<T>`]unit().
+//   rust-analyzer cargo fixture-crate 0.1.0 impl#[Person][Greeter]greet().
+//   rust-analyzer cargo fixture-crate 0.1.0 inner/helper().      (inline `mod inner {}`)
+//
+// The file is carried per-document (Document.relative_path), and each file
+// module's own symbol is DEFINED in that document over the whole file (range
+// starting at 0:0) — `crate/` for a crate root, `shapes/` for src/shapes.rs.
+// That definition gives the document's module prefix. Stripping it leaves
+// exactly what the Tree-sitter lane nests under the file: inline modules, the
+// type, and the member. Impl members are rewritten from `impl#[Self][Trait]m`
+// to `Self::m`, the same self-type reduction the Tree-sitter lane applies
+// (src/extractor/rust-names.ts), so both lanes produce one id.
+
+/** Module-path names a file-module symbol contributes as a prefix. The crate
+ *  root's `crate/` names no prefix: its items are `Greeter#`, not `crate/Greeter#`. */
+export function rustModulePrefix(sym: ScipSymbol): string[] {
+  const names = sym.descriptors.map((d) => d.name);
+  return names.length === 1 && names[0] === "crate" ? [] : names;
+}
+
+/** True when every descriptor is a namespace (a module symbol). */
+export function isRustModuleSymbol(sym: ScipSymbol): boolean {
+  return sym.descriptors.length > 0 && sym.descriptors.every((d) => d.suffix === "namespace");
+}
+
+/** The Tree-sitter-shaped name chain under the file, given the document's
+ *  module prefix. Inline modules stay; impl blocks collapse to their self type. */
+export function rustNameChain(sym: ScipSymbol, prefix: string[]): string[] {
+  const ds = sym.descriptors;
+  let i = 0;
+  while (i < prefix.length && i < ds.length && ds[i]!.suffix === "namespace" && ds[i]!.name === prefix[i]) i++;
+  const out: string[] = [];
+  for (; i < ds.length; i++) {
+    const d = ds[i]!;
+    if (d.suffix === "parameter" || d.suffix === "type_parameter") continue;
+    if (d.suffix === "type" && d.name === "impl") {
+      // impl#[Self] or impl#[Self][Trait] — the self type is the first bracket.
+      const selfTp = ds[i + 1];
+      if (selfTp?.suffix === "type_parameter") {
+        out.push(rustSelfTypeName(selfTp.name));
+        i++;
+        while (ds[i + 1]?.suffix === "type_parameter") i++;
+      }
+      continue;
+    }
+    out.push(d.name);
+  }
+  return out;
+}
+
+export function rustQualifiedName(sym: ScipSymbol, filePath: string, prefix: string[]): string {
+  const chain = rustNameChain(sym, prefix);
+  return chain.length === 0 ? filePath : `${filePath}::${chain.join("::")}`;
+}
+
+/** For `impl#[Self][Trait]member`, the reduced self and trait names. */
+export function rustImplOf(sym: ScipSymbol): { self: string; trait: string | null; member: string } | null {
+  const ds = sym.descriptors;
+  const at = ds.findIndex((d) => d.suffix === "type" && d.name === "impl");
+  if (at < 0 || ds[at + 1]?.suffix !== "type_parameter") return null;
+  const self = rustSelfTypeName(ds[at + 1]!.name);
+  const traitTp = ds[at + 2]?.suffix === "type_parameter" ? ds[at + 2]!.name : null;
+  const member = ds.slice(at + 1).find((d) => d.suffix !== "type_parameter" && d.suffix !== "parameter");
+  if (!member) return null;
+  return { self, trait: traitTp ? rustSelfTypeName(traitTp) : null, member: member.name };
+}
+
+// rust-analyzer fills SymbolInformation.kind reliably, so it leads; the
+// descriptor shape is the fallback.
+const K = scip.SymbolInformation.Kind;
+const RUST_KIND: Partial<Record<number, SymbolKind>> = {
+  [K.Module]: "module",
+  [K.Struct]: "class",
+  [K.Union]: "class",
+  [K.Enum]: "enum",
+  [K.EnumMember]: "field", // a variant — the Tree-sitter lane's kind for it
+  [K.Trait]: "interface",
+  [K.Field]: "field",
+  [K.Function]: "function",
+  [K.Macro]: "function",
+  [K.Method]: "method",
+  [K.StaticMethod]: "method",
+  [K.TraitMethod]: "method",
+  [K.TypeAlias]: "type_alias",
+  [K.AssociatedType]: "type_alias",
+  [K.Constant]: "field",
+  [K.StaticVariable]: "field",
+  [K.Variable]: "field",
+};
+
+export function rustKindOf(sym: ScipSymbol, scipKindHint?: number): SymbolKind {
+  const hinted = scipKindHint ? RUST_KIND[scipKindHint] : undefined;
+  if (hinted) return hinted;
+  const meaningful = sym.descriptors.filter(
+    (d) => d.suffix !== "type_parameter" && d.suffix !== "parameter",
+  );
+  const last = meaningful[meaningful.length - 1];
+  if (!last) return "function";
+  const owners = meaningful.slice(0, -1);
+  const insideType = owners.some((d) => d.suffix === "type");
+  switch (last.suffix) {
+    case "namespace": return "module";
+    case "method": return insideType ? "method" : "function";
+    case "macro": return "function";
+    case "meta": return "type_alias";
+    case "type": return insideType ? "field" : "class"; // nested type = enum variant
+    default: return "field"; // fields, consts, statics
+  }
+}
+
+export function rustShortName(sym: ScipSymbol, prefix: string[]): string {
+  const chain = rustNameChain(sym, prefix);
+  return chain[chain.length - 1] ?? shortNameOf(sym);
 }
